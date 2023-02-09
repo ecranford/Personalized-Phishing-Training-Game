@@ -17,3 +17,5 @@ To run this
 
 The server code requires Python version 3.7 or later. The Lisp code has only be tested in SBCL version 2.1.10, but
 should run in any recent, modern Common Lisp implementation that supports `usocket`.
+
+example-json-strings.json contains some example data structures for what we will send over the wire 
