@@ -1,0 +1,11 @@
+{
+   "round": 1,
+   "action": {"user1":1,"user2":0}, //the type of intervention: 1=send phishing email, 0=send ham email
+   "reward": {"user1":1, "user2":0} //1=correct classification, 0=incorrect classification
+}
+
+//to access the round value, do something like this:
+data["round"] >> 1
+
+data["action"] >> {"user1":1,"user2":0}
+data["action"]["user1"] >> 1
