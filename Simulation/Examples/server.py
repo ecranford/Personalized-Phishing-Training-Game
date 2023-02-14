@@ -29,8 +29,10 @@ PORT = 9893
 #                 be Bad Things will happen and there will be tears.
 
 def run(data):
-    result = "-".join([data["word"]] * int(data["repeat"]))
-    return {"string": result, "x": math.log(len(result))}
+    # result = "-".join([data["word"]] * int(data["repeat"]))
+    round = [data["round"]] + 1
+    # return {"string": result, "x": math.log(len(result))}
+    return {"round": round, "action": {"user1": random.randint(0, 1), "user2": random.randint(0, 1)}}
 
 
 class ExampleHandler (socketserver.StreamRequestHandler):
