@@ -27,8 +27,17 @@
 ;;                 be Bad Things will happen and there will be tears.
 
 (defun make-request ()
-  `((:word . ,(format nil "~R" (1+ (random 20))))
-    (:repeat . ,(1+ (random 10)))))
+  ;;`((:word . ,(format nil "~R" (1+ (random 20))))
+  ;;  (:repeat . ,(1+ (random 10)))))
+  (let ((round 1)
+        (user1-action 1)
+        (user2-action 0)
+        (user1-reward 1)
+        (user2-reward 0))
+       `((:round . ,round)
+         (:action . ((:user1 . ,user1-action) (:user2 . ,user2-action)))
+         (:rewward . ((:user1 . ,user1-reward) (:user2 . ,user2-reward))))
+  )
 
 (defun run()
   (let ((socket (usocket:socket-connect +host+ +port+)))
