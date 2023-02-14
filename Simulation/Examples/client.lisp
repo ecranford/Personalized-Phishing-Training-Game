@@ -37,6 +37,7 @@
        `((:round . ,round)
          (:action . ((:user1 . ,user1-action) (:user2 . ,user2-action)))
          (:rewward . ((:user1 . ,user1-reward) (:user2 . ,user2-reward))))
+       )
   )
 
 (defun run()
