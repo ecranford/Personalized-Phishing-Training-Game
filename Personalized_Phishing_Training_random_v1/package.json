@@ -4,5 +4,8 @@
     "description": "A multi-player phishing training simulator game",
     "author": "Edward Cranford <cranford@cmu.edu>",
     "license": "MIT/X11",
-    "homepage": "http://nodegame.org"
+    "homepage": "http://nodegame.org",
+    "dependencies": {
+        "csv-stringify": "^6.3.0"
+    }
 }
