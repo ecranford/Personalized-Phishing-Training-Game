@@ -18,7 +18,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
     let channel = gameRoom.channel;
     let memory = node.game.memory;
     //Load database of emails
-    var emails = require("C:/home/nodegame-v7.1.0/games_available/Personalized_Phishing_Training_random_v1/emails.json");
+    var emails = require("../../emails.json");
     //console.log(emails);
 
     // Must implement the stages here.

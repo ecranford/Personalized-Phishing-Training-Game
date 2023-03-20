@@ -32,7 +32,7 @@ module.exports = {
         'terms and conditions': 45000,
         'consent form': 90000,
         demographics: 60000,
-        'quick survey': 90000,
+        'experience survey': 90000,
         instructions: 90000,
         'instruction quiz': 60000,
         'practice instructions': 30000,

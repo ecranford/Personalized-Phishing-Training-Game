@@ -154,7 +154,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         }
     });
 
-    stager.extendStep('quick survey', {
+    stager.extendStep('experience survey', {
         frame: 'survey.htm',        
         cb: function() {
             //nothing here yet, not sure what is needed
@@ -163,13 +163,13 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         // Make a widget step for quick-version of experience survey.
         widget: {
             name: 'ChoiceManager',
-            id: 'qsurvey',
+            id: 'expsurvey',
             options: {
                 mainText: 'After answering the following questions, press the "DONE" button to proceeed.',
                 forms: [
                     {
                         name: 'ChoiceTable',
-                        id: 'qsurvey1',
+                        id: 'expsurvey1',
                         orientation: 'V',
                         mainText: '1. What is Phishing? (Select the most accurate description)',
                         choices: ['Pretending to be someone or a company to steal information or money',
@@ -182,7 +182,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     },
                     {
                         name: 'ChoiceTable',
-                        id: 'qsurvey2',
+                        id: 'expsurvey2',
                         orientation: 'V',
                         mainText: '2. By your estimate, approximately how many emails do you receive per day?',
                         choices: ['None',
@@ -195,7 +195,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     },
                     {
                         name: 'ChoiceTable',
-                        id: 'qsurvey3',
+                        id: 'expsurvey3',
                         orientation: 'V',
                         mainText: '3. By your estimate, approximately how often do you receive a phishing email?',
                         choices: ['Multiple phishing emails per day',
@@ -208,9 +208,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     },
                     {
                         name: 'ChoiceTable',
-                        id: 'qsurvey3',
+                        id: 'expsurvey4',
                         orientation: 'V',
-                        mainText: '3. Did you receive training on phishing attacks in the recent past?',
+                        mainText: '4. Did you receive training on phishing attacks in the recent past?',
                         choices: ['No',
                                   'Yes, I have undergone internet security awareness training',
                                   'I have read written educational material about phishing attacks and threats on the internet',

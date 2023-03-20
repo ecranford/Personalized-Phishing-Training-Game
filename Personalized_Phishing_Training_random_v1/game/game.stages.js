@@ -17,13 +17,14 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
      .step('terms and conditions')
      .step('consent form')
      .step('demographics')
-     .step('quick survey')
+     .step('experience survey')
 
      .stage('game instructions')
      .step('instructions')
      .step('instruction quiz')
 
      .stage('practice instructions') */
+
      .repeatStage('practice trials', 4)
      
      .stage('start game')
