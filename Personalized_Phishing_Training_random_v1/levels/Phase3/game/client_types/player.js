@@ -145,69 +145,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             node.game.doneButton.show();
         }
     });
-/*
-    stager.extendStep('survey', {
-        frame: 'survey.htm',  
-        init: function() {
-            node.game.visualTimer.hide();
-        },      
-        cb: function() {
-            //nothing here yet, not sure what is needed
-        },
 
-        // Make a widget step for quick-version of experience survey.
-        widget: {
-            name: 'ChoiceManager',
-            id: 'survey',
-            options: {
-                mainText: 'Please take a moment to answer the following questions. When you are finished, press the "DONE" button to end the experiment and receive your completion code.',
-                forms: [
-                    {
-                        name: 'ChoiceTable',
-                        id: 'survey1',
-                        orientation: 'V',
-                        mainText: '1. What is Phishing? (Select the most accurate description)',
-                        choices: ['Pretending to be someone or a company to steal information or money',
-                                  'Making a fake website that looks legitimate to steal information or money',
-                                  'Sending spam or advertisement emails',
-                                  'Tracking internet habits to send advertisements',
-                                  'Hacking someone’s computer by trying different passwords',
-                                  'Do not know'],
-                        requiredChoice: true
-                    },
-                    {
-                        name: 'ChoiceTable',
-                        id: 'survey2',
-                        orientation: 'V',
-                        mainText: '2. By your estimate, what is the possible number of phishing emails you may have received in the last four months?',
-                        choices: ['None',
-                                  '1 to 2 phishing emails',
-                                  '3 to 5 phishing emails',
-                                  '5 to 10 phishing emails',
-                                  'More than 10 phishing emails'],
-                        requiredChoice: true
-                    },
-                    {
-                        name: 'ChoiceTable',
-                        id: 'survey3',
-                        orientation: 'V',
-                        mainText: '3. Did you receive training on phishing attacks in the recent past?',
-                        choices: ['No',
-                                  'Yes, I have undergone internet security awareness training',
-                                  'I have read written educational material about phishing attacks and threats on the internet',
-                                  'I was phished by my company as part of a training campaign and received feedback on how to detect phishing emails',
-                                  'I have undergone formal computer security training or education'],
-                        selectMultiple: true,
-                        requiredChoice: true
-                    }
-                ],
-                formsOptions: {
-                    requiredChoice: true
-                }
-            }
-        }
-    });
-*/
     stager.extendStep('end', {
         widget: {
             name: 'EndScreen',

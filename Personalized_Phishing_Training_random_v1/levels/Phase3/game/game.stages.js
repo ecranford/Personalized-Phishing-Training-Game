@@ -15,8 +15,6 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         .repeatStage('phase 3', 20)
 
         .stage('phase 3 feedback')
-
-        //.stage('survey')
         
         //give feedback during 'end' stage
         .stage('end')
