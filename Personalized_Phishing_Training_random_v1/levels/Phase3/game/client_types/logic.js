@@ -120,7 +120,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 let email_id = this.pl.get(data.player).email_id;
                 let email_type = this.pl.get(data.player).email_type;
                 let classification;
-                let confidence_val = ((0.01*data.forms.confidence.value)*50)+50;
+                let confidence_val = data.forms.confidence.value;
+                //algorithm for 50-100 scale
+                //((0.01*data.forms.confidence.value)*50)+50;
 
                 switch (choice) {
                     case 0:

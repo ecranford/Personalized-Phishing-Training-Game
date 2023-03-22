@@ -464,12 +464,12 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                         mainText: '2. How confident are you in your answer for question 1?',
                         texts: {
                             currentValue: function(widget, value) {
-                                return '<datalist id="tickmarks" style="font-size: 14px"><option value="50" label="50"></option><option value="100" label="100"></option></datalist><datalist id="tickmarks" style="font-size: 12px"><option value="50" label="Not Confident at All"></option><option value="100" label="Fully Confident"></option></datalist>Confidence Level: ' + value;
+                                return '<datalist id="tickmarks" style="font-size: 14px"><option value="0" label="0"></option><option value="100" label="100"></option></datalist><datalist id="tickmarks" style="font-size: 12px"><option value="0" label="Not Confident at All"></option><option value="100" label="Fully Confident"></option></datalist>Confidence Level: ' + value;
                             }},
-                        min: 50,
+                        min: 0,
                         max: 100,
                         step: 5, //this doesn't actually do anything, instead it is created in the cb function
-                        initialValue: 50,
+                        initialValue: 0,
                         displayNoChange: false,
                         required: true
                     }
