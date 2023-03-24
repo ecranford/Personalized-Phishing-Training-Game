@@ -7,5 +7,8 @@
     "homepage": "http://nodegame.org",
     "dependencies": {
         "csv-stringify": "^6.3.0"
+    },
+    "card": {
+        "name": "Phishing\nTraining\nSimulator"
     }
 }

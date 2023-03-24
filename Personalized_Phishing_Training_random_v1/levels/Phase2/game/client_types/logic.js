@@ -29,6 +29,16 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         // to file memory.json (format ndjson).
         memory.stream();
 
+        //if bot playing, need to create data object in registry
+        this.pl.each(function(p) {
+            if (channel.registry.getClient(p.id).data === undefined) {
+                channel.registry.updateClient(p.id, { data: [] });
+                console.log("Bot "+p.id+" created");
+            };
+            //console.log("player "+p.id+" data is: "+channel.registry.getClient(p.id).data);
+        });
+        
+
     });
 
     //choose which email to present on each trial of training (Phase 2)
@@ -48,12 +58,69 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             console.log("Players List: "+ids);
             let num_players = Math.ceil(ids.length * 0.2); //change this as appropriate for game with 10 players (and dropouts)
             let selected_ids = [];
-            // Randomly select n players
+            // Randomly select n players without replacement
             do {
-                selected_ids.unshift(ids[Math.floor(Math.random() * ids.length)]);
+                selected_ids.unshift(ids.splice(Math.floor(Math.random() * ids.length), 1)[0]);
             }
             while (selected_ids.length < num_players);
             console.log("Selected players: "+selected_ids);
+
+            let player_phish_accs = [];
+            let player_ham_accs = [];
+
+            //send average accuracies to bot
+            //set bot's choice based on average performance of all players...including bots
+            this.pl.each(function(p) {
+                let player = channel.registry.getClient(p.id);
+                //console.log(p.id+" data is:");
+                //console.table(player.data);
+                let total_phish_scores = player.data.filter(item => item.email_type === "PHISHING");
+                //console.log(p.id+" phish accuracies is: "+total_phish_scores);
+                let total_phish_score = 0;
+                let average_phish_acc;
+                if (total_phish_scores.length > 0) {
+                    for(let i = 0; i < total_phish_scores.length; i++) {
+                        total_phish_score += total_phish_scores[i].accuracy;
+                    }
+                    average_phish_acc = total_phish_score / total_phish_scores.length;
+                    player_phish_accs.push(average_phish_acc);
+                } else {
+                    average_phish_acc = null;
+                }
+                //console.log(p.id+" avg phish accuracy is: "+average_phish_acc);
+                
+                let total_ham_scores = player.data.filter(item => item.email_type === "HAM");
+                //console.log(p.id+" ham accuracies is: "+total_ham_scores);
+                let total_ham_score = 0;
+                let average_ham_acc;
+                if (total_ham_scores.length > 0) {
+                    for(let i = 0; i < total_ham_scores.length; i++) {
+                        total_ham_score += total_ham_scores[i].accuracy;
+                    }
+                    average_ham_acc = total_ham_score / total_ham_scores.length;
+                    player_ham_accs.push(average_ham_acc);
+                } else {
+                    average_ham_acc = null;
+                }
+                //console.log(p.id+" avg ham accuracy is: "+average_ham_acc);
+            });
+            //console.log("Phish accuracies is: "+player_phish_accs);
+            //console.log("Ham accuracies is: "+player_ham_accs);
+
+            let avg_phish_acc;
+            let avg_ham_acc;
+            if (player_phish_accs.length > 0) {
+                avg_phish_acc = player_phish_accs.reduce((a, b) => a + b) / player_phish_accs.length;
+            } else {
+                avg_phish_acc = 0.5;
+            };
+            if (player_ham_accs.length > 0) {
+                avg_ham_acc = player_ham_accs.reduce((a, b) => a + b) / player_ham_accs.length;
+            } else {
+                avg_ham_acc = 0.5;
+            };
+            //console.log("Avg phish accuracy is: "+avg_phish_acc);
+            //console.log("Avg ham accuracy is: "+avg_ham_acc);   
 
             //send phase, trial, and email data to each participant
             this.pl.each(function(p) {
@@ -61,8 +128,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 //change this selection for CogModel and RMAB versions so that it requests and gets info from model.
                 let seen_emails_list = player.data.filter(item => item.email_id);
                 let seen_emails = [];
-                let i;
-                for (i = 0; i < seen_emails_list.length; i++) {
+                for (let i = 0; i < seen_emails_list.length; i++) {
                     //console.log(scores[i].accuracy);
                     seen_emails.push(seen_emails_list[i].email_id);
                 };
@@ -87,14 +153,15 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 console.log(p.id+" Email ID: "+email[0].id);
                 p.email_id = email[0].id;
                 p.email_type = email[0].type;
-                node.say("email", p.id, email);
-
+                node.say("email", p.id, email);                                    
+                node.say("averages", p.id, [p.email_type, avg_phish_acc, avg_ham_acc]);   
                 //console.log(p);
             });
             
         },
         cb: function () {
             node.on.done(function(msg) {
+                //console.log(msg);
                 let data = msg.data;
                 let player = channel.registry.getClient(data.player);
                 //console.log(data);
@@ -110,15 +177,15 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
                 switch (choice) {
                     case 0:
-                        if (email_type == 'PHISHING') {acc = 1;} else {acc = 0;};
+                        if (email_type == 'PHISHING') {acc = 1.0;} else {acc = 0.0;};
                         classification = 'PHISHING';
                         break;
                     case 1:
-                        if (email_type == 'HAM') {acc = 1;} else {acc = 0;};
+                        if (email_type == 'HAM') {acc = 1.0;} else {acc = 0.0;};
                         classification = 'HAM';
                         break;
                     default:
-                        acc = 0;
+                        acc = 0.0;
                         classification = 'HAM';
                 };
                 console.log(data.player+" Classification: "+choice+" "+classification);
@@ -203,20 +270,18 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 //phase data
                 node.say("phasedata", p.id, phase_name);
                 //phase score data
-                let phase_scores = player.data.filter(item => item.accuracy && item.phase === "phase 2");
+                let phase_scores = player.data.filter(item => item.phase === "phase 2");
                 let phase_score = 0;
-                let i;
-                for (i = 0; i < phase_scores.length; i++) {
+                for (let i = 0; i < phase_scores.length; i++) {
                     //console.log(scores[i].accuracy);
                     phase_score += phase_scores[i].accuracy;
                 };
                 //total score data
                 let total_scores = player.data.filter(item => item.accuracy);
                 let total_score = 0;
-                let j;
-                for (j = 0; j < total_scores.length; j++) {
+                for (let i = 0; i < total_scores.length; i++) {
                     //console.log(scores[i].accuracy);
-                    total_score += total_scores[j].accuracy;
+                    total_score += total_scores[i].accuracy;
                 }
                 console.log(p.id+" "+phase_name+" Score: "+phase_score);
                 console.log(p.id+" Total Score: "+total_score);

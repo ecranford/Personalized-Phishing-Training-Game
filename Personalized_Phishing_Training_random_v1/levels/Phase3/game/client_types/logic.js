@@ -48,15 +48,14 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 //change this selection for CogModel and RMAB versions so that it requests and gets info from model.
                 let seen_emails_list = player.data.filter(item => item.email_id);
                 let seen_emails = [];
-                let i;
-                for (i = 0; i < seen_emails_list.length; i++) {
+                for (let i = 0; i < seen_emails_list.length; i++) {
                     //console.log(scores[i].accuracy);
                     seen_emails.push(seen_emails_list[i].email_id);
                 };
                 console.log(p.id+" Seen emails: "+seen_emails);
-                let seen_email_types_list = player.data.filter(item => item.email_type && item.phase === "phase 3");
+                let seen_email_types_list = player.data.filter(item => item.phase === "phase 3");
                 let seen_email_types = [];
-                for (i = 0; i < seen_email_types_list.length; i++) {
+                for (let i = 0; i < seen_email_types_list.length; i++) {
                     //console.log(scores[i].accuracy);
                     seen_email_types.push(seen_email_types_list[i].email_type);
                 };
@@ -126,15 +125,15 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
                 switch (choice) {
                     case 0:
-                        if (email_type == 'PHISHING') {acc = 1;} else {acc = 0;};
+                        if (email_type == 'PHISHING') {acc = 1.0;} else {acc = 0.0;};
                         classification = 'PHISHING';
                         break;
                     case 1:
-                        if (email_type == 'HAM') {acc = 1;} else {acc = 0;};
+                        if (email_type == 'HAM') {acc = 1.0;} else {acc = 0.0;};
                         classification = 'HAM';
                         break;
                     default:
-                        acc = 0;
+                        acc = 0.0;
                         classification = 'HAM';
                 };
                 console.log(data.player+" Classification: "+choice+" "+classification);
@@ -196,20 +195,17 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 //phase data
                 node.say("phasedata", p.id, phase_name);
                 //phase score data
-                let phase_scores = player.data.filter(item => item.accuracy && item.phase === "phase 3");
+                let phase_scores = player.data.filter(item => item.phase === "phase 3");
                 let phase_score = 0;
-                let i;
-                for (i = 0; i < phase_scores.length; i++) {
+                for (let i = 0; i < phase_scores.length; i++) {
                     //console.log(scores[i].accuracy);
                     phase_score += phase_scores[i].accuracy;
                 };
                 //total score data
-                let total_scores = player.data.filter(item => item.accuracy);
                 let total_score = 0;
-                let j;
-                for (j = 0; j < total_scores.length; j++) {
+                for (let i = 0; i < player.data.length; i++) {
                     //console.log(scores[i].accuracy);
-                    total_score += total_scores[j].accuracy;
+                    total_score += player.data[i].accuracy;
                 }
                 console.log(p.id+" "+phase_name+" Score: "+phase_score);
                 console.log(p.id+" Total Score: "+total_score);
