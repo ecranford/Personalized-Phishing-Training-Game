@@ -58,7 +58,7 @@ module.exports = function(treatmentName, settings, stager,
                     console.log("Bot classification is: "+bot_choice+" "+choice_value+" (HAM)");
                 }
 
-                node.timer.random(10000).done({
+                node.timer.random(5000).done({
                     order: [ 0, 1 ],
                     forms: { 
                         classification: {
