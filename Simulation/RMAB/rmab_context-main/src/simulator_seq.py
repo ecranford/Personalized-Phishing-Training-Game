@@ -771,7 +771,7 @@ def simulateAdherence(N, L, T, R, C, B, k, policy_option, optimal_policy=None, c
             # Thompson sampling
             T_hat = thompson_sampling(N, T.shape, priors, counts, random_stream=learning_random_stream)
         
-        if t == 20:
+        '''if t == 20:
             T = []
             #5 blocks of 20
             """T1 = np.array(
@@ -1248,7 +1248,7 @@ def simulateAdherence(N, L, T, R, C, B, k, policy_option, optimal_policy=None, c
                 T.append(T4)
             T = np.array(T)
 
-            T_hat = T"""
+            T_hat = T"""'''
         
 
         if policy_option == 21:
@@ -1577,7 +1577,7 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--data', default='real', choices=['rmab_context_features_lipschitz', 'rmab_context_diffT', 'rmab_context_diffT_diffR',
                                                                 'rmab_context_features', 'full_random_online', 'arpita_sim1',
                                                                 'arpita_sim1_multiaction', 'rmab_context', 'arpita_circulant_dynamics',
-                                                                'arpita_healthcare_static', 'arpita_circulant_dynamics_prewards', 'simple_spam_ham', 'simple_spam_ham_2'],
+                                                                'arpita_healthcare_static', 'arpita_circulant_dynamics_prewards', 'simple_spam_ham', 'simple_spam_ham_2', 'behavorial'],
                         type=str, help='Method for generating transition probabilities')
 
     parser.add_argument('-s', '--seed_base', type=int, help='Base for the random seed')
@@ -1774,6 +1774,15 @@ if __name__ == "__main__":
             LC = np.zeros((T.shape[1], T.shape[2]))
             num_types = 4
             type_dist = [int(0.21 * N), int(0.214*N), int(0.305*N), int(0.271*N)]
+            args.num_states = T.shape[1]
+
+        if args.data == 'behavorial':
+            
+            T, R, C, F = simulation_environments.behavorial(N)
+            B = args.budget_frac * N
+            LC = np.zeros((T.shape[1], T.shape[2]))
+            num_types = 4
+            type_dist = [1,1,1,1]
             args.num_states = T.shape[1]
 
         if args.data == 'simple_spam_ham_2':

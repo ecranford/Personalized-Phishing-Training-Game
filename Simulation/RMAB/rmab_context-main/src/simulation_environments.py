@@ -251,6 +251,105 @@ def circulant_dynamics(N, b=0.2):
     C = np.array([0, 1])
 
     return T, R, C, F
+    
+def behavorial(N):
+
+    T1 = np.array(
+        [
+            [
+                [0.705976096, 1-0.705976096], # G state action 0
+                [0.845528455, 1-0.845528455]  # G state action 1
+            ],
+            [
+                [0.554051323, 1-0.554051323], # B state action 0
+                [0.738453687, 1-0.738453687]  # B state action 1
+            ],
+        ]
+    )
+
+    T2 = np.array(
+        [
+            [
+                [0.849293564, 1-0.849293564],  # G state action 0
+                [0.906849315, 1-0.906849315] # G state action 1
+            ],
+            [
+                [0.754189944, 1-0.754189944],  # B state action 0
+                [0.868103212, 1-0.868103212] # B state action 1
+            ],
+        ]
+    )
+
+    T3 = np.array(
+        [
+            [
+                [0.758725341, 1-0.758725341],  # G state action 0
+                [0.888413852, 1-0.888413852] # G state action 1
+            ],
+            [
+                [0.607401606, 1-0.607401606],  # B state action 0
+                [0.820343599, 1-0.820343599] # B state action 1
+            ],
+        ]
+    )
+
+    T4 = np.array(
+        [
+            [
+                [0.828947368, 1-0.828947368],  # G state action 0
+                [0.879672639, 1-0.879672639] # G state action 1
+            ],
+            [
+                [0.768219178, 1-0.768219178],  # B state action 0
+                [0.833821706, 1-0.833821706] # B state action 1
+            ],
+        ]
+    )
+    
+    r = [1, 1/2, 0]
+
+    
+    T = []
+    R = []
+    F = []
+
+    for _ in range(1):
+        T.append(T1)
+        R.append(r)
+        F.append([1, 0, 0, 0])
+
+    for _ in range(1):
+        T.append(T2)
+        R.append(r)
+        F.append([0, 1, 0, 0])
+
+    for _ in range(1):
+        T.append(T3)
+        R.append(r)
+        F.append([0, 0, 1, 0])
+
+    for _ in range(1):
+        T.append(T4)
+        R.append(r)
+        F.append([0, 0, 0, 1])
+        
+    T = np.array(T)
+    R = np.array(R)
+    C = np.array([0, 1])
+    F = np.array(F)
+    
+    file1 = open("data/types.txt", "w")
+    file2 = open("data/rewards.txt", "w")
+    file3 = open("data/costs.txt", "w")
+    file4 = open("data/f.txt", "w")
+    
+    file1.write(str(T))
+    file2.write(str(R))
+    file3.write(str(C))
+    file4.write(str(F))
+    
+    return T, R, C, F
+
 
 def simple_spam_ham(N):
     #simple environment for SPAM/HAM example
