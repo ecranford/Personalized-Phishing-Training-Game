@@ -214,6 +214,11 @@ module.exports = {
     // ON_TIMEOUT_SERVER: function(client) {
     //    console.log('*** I am timed out! ', client.id);
     // }
+    ON_TIMEOUT_SERVER: function(code) {
+        this.dispatchWithBots();
+        // Prevent disconnecting and notifying players of timeout.
+        return false;
+    },
 
     /**
      * ## ON_OPEN (function) Optional
