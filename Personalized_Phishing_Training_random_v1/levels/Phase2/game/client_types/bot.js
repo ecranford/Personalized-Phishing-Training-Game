@@ -11,16 +11,11 @@ module.exports = function(treatmentName, settings, stager,
                           setup, gameRoom, node) {
 
     stager.setDefaultCallback(function() {
-        node.timer.random.done();
+        node.timer.random(2000).done();
     });
 
     stager.extendStep('phase 2', {
         cb: function() {
-            ///first trying to set values of the widget...but lastAppended is returning 'undefined'
-            //node.widgets.lastAppended.setValues({ classification: {choice: 1, value: 'No', isCorrect: true}, confidence: {value: 0, noChange: false, isCorrect: true} });
-            ///mabye instead...
-            ///need to set message of done to edit 'data' object...
-            ///so I can get data.forms.classification.choice and data.forms.confidence.value and times for each
             node.on.data('averages', function(msg) {
                 let email_type = msg.data[0];
                 console.log("Bot email type is: "+email_type);
@@ -94,7 +89,7 @@ module.exports = function(treatmentName, settings, stager,
 
     stager.extendStep('phase 2 feedback', {
         cb: function() {
-            node.timer.random(2000).done();
+            node.done();
         }
     });
 

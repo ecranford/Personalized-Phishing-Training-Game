@@ -1,0 +1,21 @@
+<!doctype html>
+<title>DISCONNECTED</title>
+<link rel="stylesheet" href="/lib/bootstrap/bootstrap.min.css" />
+<link rel="stylesheet" href="/stylesheets/nodegame.css" />
+<link rel="stylesheet" href="css/style.css" />
+<body>
+  <div id="container">
+    <h1>Disconnected</h1>
+    <div id="disconnected">
+      <p> You have been removed from the game due to inactivity. Please return to the HIT and enter the following code to receive partial payment for your time spent in the game.
+      </p>
+      <p> Exit Code: <span id="code"></span></p>
+    </div>
+  </div>
+</body>
+<script>
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+    const code = urlParams.get('code');
+    document.getElementById("code").innerHTML = code;
+</script>

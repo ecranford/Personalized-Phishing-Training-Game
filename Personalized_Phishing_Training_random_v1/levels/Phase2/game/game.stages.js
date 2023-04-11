@@ -16,6 +16,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         .step('phase 2')
         .step('feedback')
 
-        .stage('phase 2 feedback');
+        .stage('phase 2 feedback')
+        
+        .gameover();
 
 };

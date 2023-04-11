@@ -140,7 +140,7 @@ module.exports = {
      *
      * Default: FALSE
      */
-    enableReconnections: true,
+    enableReconnections: false,
 
     /**
      * ### sameStepReconnectionOnly (boolean) Optional
@@ -169,7 +169,7 @@ module.exports = {
      *
      * Default: FALSE
      */
-    // disposeFailedReconnections: true,
+     disposeFailedReconnections: true,
 
     /**
      * ### cacheMaxAge (number) Optional
@@ -235,7 +235,7 @@ module.exports = {
      *
      * Default: true
      */
-    // roomOwnDataDir: true,
+     //roomOwnDataDir: true,
 
     /**
      * ### roomCounter (number) Optional

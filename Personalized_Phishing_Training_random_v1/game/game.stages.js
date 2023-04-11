@@ -11,8 +11,7 @@
 
 module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
      stager
-     stager
-     /*
+     
      .stage('consent')
      .step('terms and conditions')
      .step('consent form')
@@ -23,7 +22,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
      .step('instructions')
      .step('instruction quiz')
 
-     .stage('practice instructions') */
+     .stage('practice instructions')
 
      .repeatStage('practice trials', 4)
      
@@ -31,6 +30,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
      .repeatStage('phase 1', 20)
 
-     .stage('phase 1 feedback');
+     .stage('phase 1 feedback')
+     
+     .gameover();
 
 };

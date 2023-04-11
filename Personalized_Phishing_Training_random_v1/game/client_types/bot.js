@@ -11,10 +11,64 @@ module.exports = function(treatmentName, settings, stager,
                           setup, gameRoom, node) {
 
     stager.setDefaultCallback(function() {
-        node.timer.random.done();
+        node.timer.random(2000).done();
     });
 
-    stager.extendStep('phase 2', {
+    stager.extendStep('terms and conditions', {
+        cb: function() {
+            node.done();
+        }
+    });
+
+    stager.extendStep('consent form', {
+        cb: function() {
+            node.done();
+        }
+    });
+
+    stager.extendStep('demographics', {
+        cb: function() {
+            node.done();
+        }
+    });
+
+    stager.extendStep('experience survey', {
+        cb: function() {
+            node.done();
+        }
+    });
+
+    stager.extendStep('instructions', {
+        cb: function() {
+            node.done();
+        }
+    });
+    
+    stager.extendStep('instruction quiz', {
+        cb: function() {
+            node.done();
+        }
+    });
+    
+    stager.extendStep('practice instructions', {
+        cb: function() {
+            node.done();
+        }
+    });
+
+    stager.extendStep('practice trials', {
+        cb: function() {
+            node.done();
+        }
+    });
+
+    stager.extendStep('start game', {
+        cb: function() {
+            node.done();
+        }
+    });
+    
+    stager.extendStep('phase 1', {
         cb: function() {
             ///first trying to set values of the widget...but lastAppended is returning 'undefined'
             //node.widgets.lastAppended.setValues({ classification: {choice: 1, value: 'No', isCorrect: true}, confidence: {value: 0, noChange: false, isCorrect: true} });
@@ -86,15 +140,9 @@ module.exports = function(treatmentName, settings, stager,
         }
     });
 
-    stager.extendStep('feedback', {
+    stager.extendStep('phase 1 feedback', {
         cb: function() {
-            node.timer.random(2000).done();
-        }
-    });
-
-    stager.extendStep('phase 2 feedback', {
-        cb: function() {
-            node.timer.random(2000).done();
+            node.done();
         }
     });
 

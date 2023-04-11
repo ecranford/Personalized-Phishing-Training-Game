@@ -11,10 +11,10 @@ module.exports = function(treatmentName, settings, stager,
                           setup, gameRoom, node) {
 
     stager.setDefaultCallback(function() {
-        node.timer.random.done();
+        node.timer.random(2000).done();
     });
 
-    stager.extendStep('phase 2', {
+    stager.extendStep('phase 3', {
         cb: function() {
             ///first trying to set values of the widget...but lastAppended is returning 'undefined'
             //node.widgets.lastAppended.setValues({ classification: {choice: 1, value: 'No', isCorrect: true}, confidence: {value: 0, noChange: false, isCorrect: true} });
@@ -79,22 +79,22 @@ module.exports = function(treatmentName, settings, stager,
                             time: 0
                         }},
                     missValues: [],
-                    id: 'phase 2',
+                    id: 'phase 3',
                     isCorrect: true
                 });
             });
         }
     });
 
-    stager.extendStep('feedback', {
+    stager.extendStep('phase 3 feedback', {
         cb: function() {
-            node.timer.random(2000).done();
+            node.done();
         }
     });
 
-    stager.extendStep('phase 2 feedback', {
+    stager.extendStep('end', {
         cb: function() {
-            node.timer.random(2000).done();
+            node.timer.done();
         }
     });
 

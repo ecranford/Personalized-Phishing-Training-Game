@@ -31,12 +31,12 @@ module.exports = {
     TIMER: {
         'terms and conditions': 45000,
         'consent form': 90000,
-        demographics: 60000,
+        demographics: 30000,
         'experience survey': 90000,
         instructions: 90000,
-        'instruction quiz': 60000,
+        'instruction quiz': 90000,
         'practice instructions': 30000,
-        'practice trials': 60000,
+        'practice trials': 30000,
         'start game': 30000,
         'phase 1': 30000,
         'phase 1 feedback': 10000,
@@ -50,7 +50,7 @@ module.exports = {
     // # Game specific properties
 
     // Base Pay
-    BASE_PAY: 4,
+    BASE_PAY: 6,
     // Exchange rate coins to dollars.
     EXCHANGE_RATE: 0.05
 

@@ -47,8 +47,6 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         frame: 'game.htm',
         init: function() {
             //node.game.visualTimer.hide();
-            //W.setInnerHTML('phase', phase);
-            //W.setInnerHTML('trial', trial);
         },
         donebutton: {
             text: 'Next'
@@ -132,8 +130,6 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 W.setInnerHTML('phase-score', msg.data[0]);
                 W.setInnerHTML('total-score', msg.data[1]);
             });
-
-            //W.cssRule('btn {text-align: center; display: inline-block; margin: 0 auto;}');
         },
         widget: {
             name: 'DoneButton',

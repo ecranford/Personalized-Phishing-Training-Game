@@ -12,6 +12,10 @@
 const ngc = require('nodegame-client');
 const J = ngc.JSUS;
 
+//get packages to write data.csv file at end of phase 3
+var stringify = require('csv-stringify');
+var fs = require('fs');
+
 module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
     let node = gameRoom.node;
@@ -20,8 +24,12 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
     //Load database of emails
     var emails = require("../../../../emails.json");
     //console.log(emails);
+    let avg_phish_acc;
+    let avg_ham_acc;
 
     // Must implement the stages here.
+
+    stager.setDefaultProperty('minPlayers', channel.gameRooms.waiting_Phase2.settings.GROUP_SIZE);
 
     stager.setOnInit(function() {
         // Initialize the client.
@@ -38,6 +46,47 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             //console.log("player "+p.id+" data is: "+channel.registry.getClient(p.id).data);
         });
         
+        node.on.pdisconnect(function(player) {
+            if (player.disconnected) {
+            //don't allow player to reconnect
+            player.allowReconnect = false;
+
+            //player data will save when bot finishes, but...
+            //also need to compute current bonus whenever a player disconnects...but probably will just pay them base payment?
+            //Saves bonus file, and notifies players.
+            gameRoom.computeBonus({say: false, amt: true, addDisconnected: true});
+            // Save times of all stages in case need to figure out how much base pay to pay them
+            memory.select('player', '=', player.id).save(player.id+'_times.csv', {
+                header: [
+                    'session', 'player', 'stage', 'step', 'round', 'timestamp',
+                    'time', 'timeup'
+                ]
+            });
+            //console.log(player);
+            let bot = channel.connectBot({
+                room: gameRoom,
+                replaceId: player.id,
+                gotoStep: player.disconnectedStage
+            });
+            console.log("---------Player "+player.id+" replaced with bot "+bot.player.id+"---------");
+            
+            console.log(node.game.pl.id.getAllKeys());
+
+            node.game.pl.get(bot.player.id).email_id = player.email_id;
+            node.game.pl.get(bot.player.id).email_type = player.email_type;
+            node.game.pl.get(bot.player.id).WorkerId = player.WorkerId;
+            node.game.pl.get(bot.player.id).mturkid = player.mturkid;
+            channel.registry.updateClient(bot.player.id, { data: player.data });
+
+            if (player.disconnectedStage.step == 1) {
+                node.say("averages", bot.player.id, [player.email_type, player.avg_phish_acc, player.avg_ham_acc]);
+            };
+
+            //console.log(node.game.pl.id.getAllKeys());
+            };
+        });
+
+        console.log("----------Beginning Phase 2----------");
 
     });
 
@@ -46,6 +95,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         init: function() {
             let trial = node.game.getRound();
             let phase = node.game.getCurrentStepObj();
+            console.log("------------------------");
             console.log(phase.id[0].toUpperCase() + phase.id.substring(1));
             console.log("Trial "+trial);
             //for test phase, select 20% of players
@@ -107,8 +157,6 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             //console.log("Phish accuracies is: "+player_phish_accs);
             //console.log("Ham accuracies is: "+player_ham_accs);
 
-            let avg_phish_acc;
-            let avg_ham_acc;
             if (player_phish_accs.length > 0) {
                 avg_phish_acc = player_phish_accs.reduce((a, b) => a + b) / player_phish_accs.length;
             } else {
@@ -132,7 +180,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     //console.log(scores[i].accuracy);
                     seen_emails.push(seen_emails_list[i].email_id);
                 };
-                console.log(p.id+" Seen emails: "+seen_emails);
+                console.log(p.id+" Seen emails has duplicates: "+((new Set(seen_emails)).size !== seen_emails.length));
                 let email_num;
                 //for test phase, send phishing email to 20% of players
                 if (selected_ids.includes(p.id)) {
@@ -150,21 +198,27 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
                 node.say("phasedata", p.id, [phase.id[0].toUpperCase() + phase.id.substring(1), trial]);
                 var email = emails.filter(el => {return el['id'] === email_num.toString();});
-                console.log(p.id+" Email ID: "+email[0].id);
+                console.log("Fetching email number "+email_num+" for "+p.id);
+                if (email_num.toString() !== email[0].id) {
+                    console.log("Error: wrong email retrieved from database for "+p.id);
+                }
+                //console.log("Verifying Email ID "+email[0].id+" for "+p.id);
                 p.email_id = email[0].id;
                 p.email_type = email[0].type;
+                p.avg_ham_acc = avg_ham_acc;
+                p.avg_phish_acc = avg_phish_acc;
                 node.say("email", p.id, email);                                    
                 node.say("averages", p.id, [p.email_type, avg_phish_acc, avg_ham_acc]);   
                 //console.log(p);
             });
             
         },
-        cb: function () {
+        cb: function () {          
             node.on.done(function(msg) {
-                //console.log(msg);
                 let data = msg.data;
+
                 let player = channel.registry.getClient(data.player);
-                //console.log(data);
+
                 let acc;
                 let choice = data.forms.classification.choice;
                 
@@ -191,15 +245,18 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 console.log(data.player+" Classification: "+choice+" "+classification);
                 console.log(data.player+" Confidence: "+confidence_val);
                 console.log(data.player+" Accuracy: "+acc);
-                console.log("------------------------");
 
                 //save data to memory
-                node.game.memory.add({recordType: "decision",
+                memory.add({recordType: "decision",
                     player: data.player,
+                    WorkerId: player.WorkerId,
+                    mturkid: player.mturkid,
+                    type: player.clientType,
                     session: data.session,
                     stage: data.stage,
                     time: data.time,
                     timestamp: data.timestamp,
+                    timeup: +data.timeup,
                     phase: data.stepId,
                     trial: data.stage.round,
                     email_id: email_id,
@@ -215,10 +272,14 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 //save data to registry
                 player.data.push({
                     player: data.player,
+                    WorkerId: player.WorkerId,
+                    mturkid: player.mturkid,
+                    type: player.clientType,
                     session: data.session,
                     stage: data.stage,
                     time: data.time,
                     timestamp: data.timestamp,
+                    timeup: +data.timeup,
                     phase: data.stepId,
                     trial: data.stage.round,
                     email_id: email_id,
@@ -230,6 +291,21 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     conf_time: data.forms.confidence.time,
                     accuracy: acc   
                 });
+
+                //track timeouts in player object
+                if (player.total_timeout) {
+                    if (data.timeup) {
+                        player.total_timeout = player.total_timeout + 1;
+                        player.consec_timeout = player.consec_timeout + 1;
+                    } else {
+                        player.consec_timeout = 0;
+                    };
+                } else {
+                   player.total_timeout = +data.timeup;
+                   player.consec_timeout = +data.timeup; 
+                };
+                console.log(data.player+" Total timeouts: "+player.total_timeout);
+                console.log(data.player+" Consecutive timeouts: "+player.consec_timeout);
             });
         }
     });
@@ -247,13 +323,29 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 console.log(p.id+" Acc: "+acc);
                 let email_type = player.data.filter(item => item.phase === "phase 2" && item.trial === trial)[0].email_type;
                 console.log(p.id+" Email Type: "+email_type);
-                if (acc == 0 && email_type == 'PHISHING') {
-                    console.log("Incorrect phishing classification. Giving feedback to: "+p.id);
-                    node.say("feedback", p.id, 0);
+
+                //disconnect if 3 consecutive timeouts or 5 total timeouts
+                if (player.total_timeout >= 5 || player.consec_timeout >= 3) {
+                    //disconnect player here
+                    //console.log(node.game.pl.id.getAllKeys());
+                    console.log(p.id+" was removed");
+                    //Redirect player to disconnected page
+                    node.redirect('disconnected.htm'+'?code='+player.ExitCode, player.id);
+                    
+                    //alternative method to disconnecte a player
+                    //node.remoteAlert('You have been disconnected due to inactivity.\nPlease return to the HIT and enter this code to receive your partial payment: ', player.id);
+                    //node.disconnectClient(player);
+                    
+                    //console.log(node.game.pl.id.getAllKeys());
                 } else {
-                    console.log("No feedback given to "+p.id+" for ham emails or correct phishing classification.");
-                    node.say("feedback", p.id, 1);
-                }
+                    if (acc == 0 && email_type == 'PHISHING') {
+                        console.log("Incorrect phishing classification. Giving feedback to: "+p.id);
+                        node.say("feedback", p.id, 0);
+                    } else {
+                        console.log("No feedback given to "+p.id+" for ham emails or correct phishing classification.");
+                        node.say("feedback", p.id, 1);
+                    }
+                };
             });
         }
     });
@@ -293,6 +385,23 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             });
         },
         cb: function() {
+            // Save times of all stages.
+            memory.done.save('times.csv', {
+                header: [
+                    'session', 'player', 'stage', 'step', 'round', 'timestamp',
+                    'time', 'timeup'
+                ]
+            });
+            // Save data to csv
+            memory.select('recordType', '=', 'decision').save('data.csv', {
+                header: [
+                    'session', 'player', 'stage', 'step', 'round',
+                    'time', 'timestamp','phase',"trial","email_id",
+                    "email_type","class_val","classification",
+                    "class_time","confidence","conf_time","accuracy"
+                ]
+            });
+
             node.on.data('level_done', function(msg) {
                 // currentRoom is optional, avoid lookup.
                 let currentRoom; // let currentRoom = gameRoom.name; 
@@ -304,6 +413,35 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     channel.moveClientToGameLevel(msg.from, levelName, currentRoom);
                 }, 100);
             });
+
+            this.pl.each(function(p) {
+                let player = channel.registry.getClient(p.id);
+                if (player.clientType == 'bot') {
+                    //write player.data to a data.csv file (if exists, append)
+                    if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv')) {
+                        stringify.stringify(player.data,{header: false}, function(err, output) {
+                            fs.appendFile('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8', function(err) {
+                                if (err) {
+                                    console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
+                                } else {
+                                    console.log('Data saved for player '+p.id);
+                                }
+                            });
+                        });
+                    } else {
+                        stringify.stringify(player.data,{header: true}, function(err, output) {
+                            fs.writeFile('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8', function(err) {
+                                if (err) {
+                                    console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
+                                } else {
+                                    console.log('Data saved for player '+p.id);
+                                }
+                            });
+                        });
+                    };
+                };
+            });
+
         }
     });
 };

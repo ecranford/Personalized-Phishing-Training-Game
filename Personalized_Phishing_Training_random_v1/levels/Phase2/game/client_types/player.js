@@ -47,8 +47,6 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         frame: 'game.htm',
         init: function() {
             //node.game.visualTimer.hide();
-            //W.setInnerHTML('phase', phase);
-            //W.setInnerHTML('trial', trial);
         },
         donebutton: {
             text: 'Next'
@@ -74,7 +72,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 W.setInnerHTML('subject', msg.data[0].subject);
                 W.setInnerHTML('body', msg.data[0].body);
             });
-            //set the step attribute to 5 so that the slider is easier to set...may revert to continuous values
+            //set the step attribute to 5 so that the slider is easier to set
             W.getElementsByClassName('volume-slider')[0].setAttribute('step', '5');
         },
 
@@ -144,7 +142,6 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             node.game.doneButton.hide();
         },
         cb: function() {
-            //node.timer.wait(10000).done();
             node.on.data('phasedata', function(msg) {
                 W.setInnerHTML('phase', msg.data);
                 W.setInnerHTML('phase2', msg.data);
@@ -153,7 +150,6 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 W.setInnerHTML('phase-score', msg.data[0]);
                 W.setInnerHTML('total-score', msg.data[1]);
             });
-            //W.cssRule('btn {text-align: center; display: inline-block; margin: 0 auto;}');
         },
         widget: {
             name: 'DoneButton',

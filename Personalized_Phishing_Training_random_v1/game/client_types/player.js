@@ -13,6 +13,9 @@
 
 "use strict";
 
+const ngc = require('nodegame-client');
+const J = ngc.JSUS;
+
 module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
     stager.setOnInit(function() {
@@ -42,11 +45,11 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         // Additional debug information while developing the game.
         // this.debugInfo = node.widgets.append('DebugInfo', header)
     });
-/*
+
     stager.extendStep('terms and conditions', {
         frame: 'pre-consent.htm',        
         cb: function() {
-            //nothing here yet, not sure what is needed
+            //nothing here yet
         },
 
         // Make a widget step for preconsent.
@@ -75,8 +78,15 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     {
                         name: 'ChoiceTable',
                         id: 'pc3',
-                        mainText: '3. I will complete the study promptly without any excessive delays and I am aware that failing to do so may result my payment being invalidated.',
+                        mainText: '3. I will complete the study promptly without any excessive delays and I am aware that failing to do so may result in my payment being invalidated.',
                         choices: ['True'],
+                        requiredChoice: true
+                    },
+                    {
+                        name: 'CustomInput',
+                        id: 'mturkid',
+                        mainText: '4. Enter your Mturk ID',
+                        type: 'text',
                         requiredChoice: true
                     }
                 ],
@@ -84,6 +94,17 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     requiredChoice: true
                 }
             }
+        },
+        done: function(data) {
+            //this gets data from query if the uid is passed to the link to the game from mturk, otherwise will be null
+            var qs = new URLSearchParams(J.getQueryString());
+            var uid = qs.get("id");
+            var aid = qs.get("a");
+            var hid = qs.get("h");
+            data.WorkerId = uid;
+            data.AssignmentId = aid;
+            data.HITId = hid;
+            return data;
         }
     });
 
@@ -94,7 +115,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         },
 
         cb: function() {
-            //nothing here yet, not sure what is needed
+            //nothing here yet
         },
 
         // Make a widget step for displaying consent form.
@@ -111,7 +132,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
     stager.extendStep('demographics', {
         frame: 'demographics.htm',        
         cb: function() {
-            //nothing here yet, not sure what is needed
+            //nothing here yet
         },
 
         // Make a widget step for demographics questionnaire.
@@ -126,7 +147,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                         id: 'demo1-sex',
                         orientation: 'V',
                         mainText: '1. Please specify your sex:',
-                        choices: ['Male','Female','Do not wish to specify'],
+                        choices: ['Male','Female','Non-binary','Do not wish to specify'],
                         requiredChoice: true
                     },
                     {
@@ -157,7 +178,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
     stager.extendStep('experience survey', {
         frame: 'survey.htm',        
         cb: function() {
-            //nothing here yet, not sure what is needed
+            //nothing here yet
         },
 
         // Make a widget step for quick-version of experience survey.
@@ -230,7 +251,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
     stager.extendStep('instructions', {
         frame: 'instructions.htm',
         cb: function() {
-            //nothing here yet, not sure what is needed
+            //nothing here yet
         }
     });
 
@@ -243,7 +264,6 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             W.cssRule('table.choicetable td { text-align: left !important; ' +
                       'font-weight: normal; padding-left: 10px; }');
         },
-
         // Make a widget step for the instruction quiz.
         widget: {
             name: 'ChoiceManager',
@@ -298,17 +318,28 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                                 ],
                         correctChoice: '0'
                     },
-                    //{
-                    //    name: 'ChoiceTable',
-                    //    id: 'instquiz5',
-                    //    orientation: 'V',
-                    //    mainText: '5. There will be several attention checks in the experiment. If you fail in two attentions checks what will happen?',
-                    //    choices: ['I will continue the experiment',
-                    //              'I will not be able to proceed with the experiment but will receive base payment and performance bonus',
-                    //              'I will not be able to proceed with the experiment and will receive only base payment'
-                    //            ],
-                    //    correctChoice: '2'
-                    //}
+                    {
+                        name: 'ChoiceTable',
+                        id: 'instquiz5',
+                        orientation: 'V',
+                        mainText: '5. You will have 30 seconds to respond to each email. If you fail to respond within the time limit multiple times, what will happen?',
+                        choices: ['I will continue the experiment',
+                                  'I will not be able to proceed with the experiment but will receive base payment and performance bonus',
+                                  'I will not be able to proceed with the experiment and will receive only a portion of the base payment, based on my time spent in the game'
+                                ],
+                        correctChoice: '2'
+                    },
+                    {
+                        name: 'ChoiceTable',
+                        id: 'instquiz6',
+                        orientation: 'V',
+                        mainText: '6. There will be several attention checks in the experiment. If you fail in two attentions checks what will happen?',
+                        choices: ['I will continue the experiment',
+                                  'I will not be able to proceed with the experiment but will receive base payment and performance bonus',
+                                  'I will not be able to proceed with the experiment and will receive only base payment'
+                                ],
+                        correctChoice: '2'
+                    }
                 ]
             }
         }
@@ -321,7 +352,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             W.cssRule('table {width: 100%; height: 420px;}');
         },
         cb: function() {
-            //W.cssRule('btn {text-align: center; display: inline-block; margin: 0 auto;}');
+            //nothing here yet
         },
         widget: {
             name: 'DoneButton',
@@ -333,15 +364,12 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             W.hide('pract_inst');
         }
     });
-*/
+
     stager.extendStep('practice trials', {
         frame: 'practice.htm',
         init: function() {
-            node.game.visualTimer.hide();
             node.game.doneButton.hide();
-
         },
-        //to get round id 'node.game.getRound()
         cb: function() {
             let explanation;
             let trial = node.game.getRound();
@@ -391,7 +419,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             node.game.doneButton.hide();
         },
         cb: function() {
-            //W.cssRule('btn {text-align: center; display: inline-block; margin: 0 auto;}');
+            //nothing here yet
         },
         widget: {
             name: 'DoneButton',
@@ -407,10 +435,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
     stager.extendStep('phase 1', {
         frame: 'game.htm',
         init: function() {
-            node.game.visualTimer.show();
+            //node.game.visualTimer.show();
             //node.game.visualTimer.hide();
-            //W.setInnerHTML('phase', phase);
-            //W.setInnerHTML('trial', trial);
         },
         donebutton: {
             text: 'Next'
@@ -436,8 +462,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 W.setInnerHTML('subject', msg.data[0].subject);
                 W.setInnerHTML('body', msg.data[0].body);
             });
-            //set the step attribute to 5 so that the slider is easier to set...may revert to continuous values
+            //set the step attribute to 5 so that the slider is easier to set
             W.getElementsByClassName('volume-slider')[0].setAttribute('step', '5');
+
         },
 
         // Make a widget step for the classification questions.
@@ -468,7 +495,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                             }},
                         min: 0,
                         max: 100,
-                        step: 5, //this doesn't actually do anything, instead it is created in the cb function
+                        step: 5, //this doesn't actually do anything in ng-v7.1.0, instead it is created in the cb function
                         initialValue: 0,
                         displayNoChange: false,
                         required: true

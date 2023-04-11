@@ -25,6 +25,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
     stager.setOnInit(function() {
         // Initialize the client.
+
         // Will automatically save every entry in the database
         // to file memory.json (format ndjson).
         memory.stream();
@@ -32,25 +33,87 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         //create data object for each player in registry to use across levels
         this.pl.each(function(p) {
         channel.registry.updateClient(p.id, { data: [] });
+        channel.registry.updateClient(p.id, { total_timeout: 0 });
+        channel.registry.updateClient(p.id, { consec_timeout: 0 });
+        channel.registry.updateClient(p.id, { ExitCode: J.uniqueKey({}, J.randomString(6, 'aA1')) });
         });
+
+        node.on.pdisconnect(function(player) {
+            console.log(player);
+            if (player.disconnected) {
+                //don't allow player to reconnect if kicked
+                player.allowReconnect = false;
+
+                //player data will save when bot finishes, but...
+                //also need to compute current bonus whenever a player disconnects...but probably will just pay them base payment?
+                //Saves bonus file, and notifies players.
+                console.log("Saving data for "+player.id);
+                gameRoom.computeBonus({say: false, amt: true, addDisconnected: true});
+                // Save times of all stages in case need to figure out how much base pay to pay them
+                memory.select('player', '=', player.id).save(player.id+'_times.csv', {
+                    header: [
+                        'session', 'player', 'stage', 'step', 'round', 'timestamp',
+                        'time', 'timeup'
+                    ]
+                });
+                // Save data to csv
+                memory.select('recordType', '=', 'decision').and('player', '=', player.id).save(player.id+'_data.csv', {
+                    header: [
+                        'session', 'player', 'stage', 'step', 'round',
+                        'time', 'timestamp','phase',"trial","email_id",
+                        "email_type","class_val","classification",
+                        "class_time","confidence","conf_time","accuracy"
+                    ]
+                });
+                //console.log(node.game.pl.id.getAllKeys());
+                node.game.stop();
+            };
+        });
+
+        //console.log("player list:\n"+this.pl);
+        //console.log("channel registry clients:\n"+channel.registry.clients.player.getAllKeys());
 
     });
 
-    //choose which email to present on each trial of practice
+    stager.extendStep('terms and conditions', {
+        cb: function() {
+            node.on.done(function(msg) {
+                let data = msg.data;
+
+                channel.registry.updateClient(data.player, { WorkerId: data.WorkerId });
+                channel.registry.updateClient(data.player, { mturkid: data.forms.mturkid.value });
+                channel.registry.updateClient(data.player, { AssignmentId: data.AssignmentId });
+                channel.registry.updateClient(data.player, { HITId: data.HITId });
+
+                //two ways to access client object
+                //console.log(this.pl.get(data.player));
+                //console.log(channel.registry.getClient(data.player));
+            });
+        }
+    });
+
     stager.extendStep('practice trials', {
         cb: function() {
-        this.pl.each(function(p) {
+            this.pl.each(function(p) {
+                //choose which email to present on each trial of practice
                 var email = emails.filter(el => {return el['id'] === "ex"+node.game.getRound();});
                 node.say("email", p.id, email);
             });
         }
     });
 
+    stager.extendStep('start game', {
+        exit: function() {
+            console.log("----------Beginning Phase 1----------");
+        }
+    })
+
     //choose which email to present on each trial of pre-test (Phase 1)
     stager.extendStep('phase 1', {
         init: function() {
             let trial = node.game.getRound();
             let phase = node.game.getCurrentStepObj();
+            console.log("------------------------");
             console.log(phase.id[0].toUpperCase() + phase.id.substring(1));
             console.log("Trial "+trial);
             //send phase, trial, and email data to each participant
@@ -64,14 +127,14 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     //console.log(scores[i].accuracy);
                     seen_emails.push(seen_emails_list[i].email_id);
                 };
-                console.log(p.id+" Seen emails: "+seen_emails);
+                console.log(p.id+" Seen emails has duplicates: "+((new Set(seen_emails)).size !== seen_emails.length));
                 let seen_email_types_list = player.data.filter(item => item.phase === "phase 1");
                 let seen_email_types = [];
                 for (let i = 0; i < seen_email_types_list.length; i++) {
                     //console.log(scores[i].accuracy);
                     seen_email_types.push(seen_email_types_list[i].email_type);
                 };
-                console.log(p.id+" Seen email types: "+seen_email_types);
+                //console.log(p.id+" Seen email types: "+seen_email_types);
                 let num_phishing = seen_email_types.filter(x => x=="PHISHING").length;
                 console.log(p.id+" Number phishing: "+num_phishing);
                 let num_ham = seen_email_types.filter(x => x=="HAM").length;
@@ -108,27 +171,29 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     }
                     while (seen_emails.includes(''+email_num));
                 }; 
-                console.log("Getting email number "+email_num+" for "+p.id);
+                console.log("Fetching email number "+email_num+" for "+p.id);
 
                 node.say("phasedata", p.id, [phase.id[0].toUpperCase() + phase.id.substring(1), trial]);
                 var email = emails.filter(el => {return el['id'] === email_num.toString();});
-                console.log("Verifying Email ID "+email[0].id+" for "+p.id);
+                if (email_num.toString() !== email[0].id) {
+                    console.log("Error: wrong email retrieved from database for "+p.id);
+                }
+                //console.log("Verifying Email ID "+email[0].id+" for "+p.id);
                 //console.log("Email sender: "+email[0].sender);
                 //console.log("Email subject: "+email[0].subject);
                 //console.log("Email body: "+email[0].body);
                 p.email_id = email[0].id;
                 p.email_type = email[0].type;
                 node.say("email", p.id, email);
-
-                //console.log(p);
             });
             
         },
         cb: function () {
-            node.once.done(function(msg) {
+            node.on.done(function(msg) {
                 let data = msg.data;
+
                 let player = channel.registry.getClient(data.player);
-                //console.log(data);
+
                 let acc;
                 let choice = data.forms.classification.choice;
                 
@@ -155,15 +220,18 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 console.log(data.player+" Classification: "+choice+" "+classification);
                 console.log(data.player+" Confidence: "+confidence_val);
                 console.log(data.player+" Accuracy: "+acc);
-                console.log("------------------------");
 
                 //save data to memory
-                node.game.memory.add({recordType: "decision",
+                memory.add({recordType: "decision",
                     player: data.player,
+                    WorkerId: player.WorkerId,
+                    mturkid: player.mturkid,
+                    type: player.clientType,
                     session: data.session,
                     stage: data.stage,
                     time: data.time,
                     timestamp: data.timestamp,
+                    timeup: +data.timeup,
                     phase: data.stepId,
                     trial: data.stage.round,
                     email_id: email_id,
@@ -179,10 +247,14 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 //save data to registry
                 player.data.push({
                     player: data.player,
+                    WorkerId: player.WorkerId,
+                    mturkid: player.mturkid,
+                    type: player.clientType,
                     session: data.session,
                     stage: data.stage,
                     time: data.time,
                     timestamp: data.timestamp,
+                    timeup: +data.timeup,
                     phase: data.stepId,
                     trial: data.stage.round,
                     email_id: email_id,
@@ -195,8 +267,44 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     accuracy: acc   
                 });
 
-                //console.log(player.data);
+                //track timeouts in player object
+                if (player.total_timeout) {
+                    if (data.timeup) {
+                        player.total_timeout = player.total_timeout + 1;
+                        player.consec_timeout = player.consec_timeout + 1;
+                    } else {
+                        player.consec_timeout = 0;
+                    };
+                } else {
+                   player.total_timeout = +data.timeup;
+                   player.consec_timeout = +data.timeup; 
+                };
+                console.log(data.player+" Total timeouts: "+player.total_timeout);
+                console.log(data.player+" Consecutive timeouts: "+player.consec_timeout);
+                //player.id is player id
+                //player.sid is player sid
+                //console.log(node.nodename); //room name
+
+                //disconnect if 3 consecutive timeouts or 5 total timeouts
+                if (player.total_timeout >= 5 || player.consec_timeout >= 3) {
+                    //disconnect player here
+                    //console.log(node.game.pl.id.getAllKeys());
+                    console.log(data.player+" was removed");
+                    //Redirect player to disconnected page?
+                    node.redirect('disconnected.htm'+'?code='+player.ExitCode, player.id);
+                    
+                    //alternative method to disconnecte a player
+                    //node.remoteAlert('You have been disconnected due to inactivity.\nPlease return to the HIT and enter this code to receive your partial payment: ', player.id);
+                    //node.disconnectClient(player);
+                    
+                    //console.log(node.game.pl.id.getAllKeys());
+                    node.game.pause();
+                    //node.game.stop();
+                    //node.game.resume();
+                    //node.game.gameover();
+                };
                 
+
             });
         }
     });
@@ -235,6 +343,23 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             });
         },
         cb: function() {
+            // Save times of all stages.
+            memory.done.save('times.csv', {
+                header: [
+                    'session', 'player', 'stage', 'step', 'round', 'timestamp',
+                    'time', 'timeup'
+                ]
+            });
+            // Save data to csv
+            memory.select('recordType', '=', 'decision').save('data.csv', {
+                header: [
+                    'session', 'player', 'stage', 'step', 'round',
+                    'time', 'timestamp','phase',"trial","email_id",
+                    "email_type","class_val","classification",
+                    "class_time","confidence","conf_time","accuracy"
+                ]
+            });
+
             node.on.data('level_done', function(msg) {
                 // currentRoom is optional, avoid lookup.
                 let currentRoom; // let currentRoom = gameRoom.name; 
