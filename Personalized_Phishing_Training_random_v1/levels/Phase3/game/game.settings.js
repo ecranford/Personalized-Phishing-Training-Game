@@ -36,9 +36,9 @@ module.exports = {
     // # Game specific properties
 
     // Base Pay
-    BASE_PAY: 4,
+    BASE_PAY: 6,
     // Exchange rate coins to dollars.
-    EXCHANGE_RATE: 0.05
+    EXCHANGE_RATE: 0.12
 
     // # Treatments definition.
 

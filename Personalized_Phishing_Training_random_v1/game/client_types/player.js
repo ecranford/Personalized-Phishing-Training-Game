@@ -48,6 +48,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
     stager.extendStep('terms and conditions', {
         frame: 'pre-consent.htm',        
+        init: function(){
+            node.game.visualTimer.hide();
+        },
         cb: function() {
             //nothing here yet
         },
@@ -250,6 +253,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
     stager.extendStep('instructions', {
         frame: 'instructions.htm',
+        init: function(){
+            node.game.visualTimer.show();
+        },
         cb: function() {
             //nothing here yet
         }
@@ -508,7 +514,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
     stager.extendStep('phase 1 feedback', {
         frame: 'feedback.htm',
         init: function() {
-            node.game.visualTimer.show();
+            //node.game.visualTimer.show();
             node.game.doneButton.hide();
         },
         cb: function() {

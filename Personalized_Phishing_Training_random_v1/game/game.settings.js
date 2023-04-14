@@ -29,10 +29,10 @@ module.exports = {
      * used to initialize the game timer for the step.
      */
     TIMER: {
-        'terms and conditions': 45000,
-        'consent form': 90000,
-        demographics: 30000,
-        'experience survey': 90000,
+        //'terms and conditions': 45000,
+        //'consent form': 90000,
+        //demographics: 30000,
+        //'experience survey': 90000,
         instructions: 90000,
         'instruction quiz': 90000,
         'practice instructions': 30000,
@@ -52,7 +52,7 @@ module.exports = {
     // Base Pay
     BASE_PAY: 6,
     // Exchange rate coins to dollars.
-    EXCHANGE_RATE: 0.05
+    EXCHANGE_RATE: 0.12
 
     // # Treatments definition.
 

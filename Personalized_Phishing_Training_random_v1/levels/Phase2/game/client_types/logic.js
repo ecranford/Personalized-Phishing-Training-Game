@@ -43,6 +43,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 channel.registry.updateClient(p.id, { data: [] });
                 console.log("Bot "+p.id+" created");
             };
+
+            channel.registry.updateClient(p.id, { group: gameRoom.name.substring(4)}); //update goup id from room number
             //console.log("player "+p.id+" data is: "+channel.registry.getClient(p.id).data);
         });
         
@@ -62,6 +64,47 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     'time', 'timeup'
                 ]
             });
+            let totalTime = Date.now()-player.startTime;
+            let bonus = [{
+                id: player.id,
+                type: player.clientType,
+                workerid: player.WorkerId,
+                hitid: player.HITId,
+                assignmentid: player.AssignmentId,
+                access: 'NA',
+                exit: player.ExitCode,
+                totaltime: totalTime,
+                approve: 1,
+                reject: 0,
+                basepay: node.game.settings.BASE_PAY,
+                bonus: player.winRaw*node.game.settings.EXCHANGE_RATE,
+                totalpay: (totalTime/60000)*0.10, //time in minutes * $0.10 per minute, no bonus
+                disconnected: player.disconnected == null ? 0 : player.disconnected,
+                disconnectStage: player.disconnectedStage.stage+'.'+player.disconnectedStage.step+'.'+player.disconnectedStage.round
+            }];
+            // Save bonus info to main bonus.csv
+            if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv')) {
+                stringify.stringify(bonus,{header: false}, function(err, output) {
+                    fs.appendFile('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8', function(err) {
+                        if (err) {
+                            console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
+                        } else {
+                            console.log('Bonus data saved for player '+player.id);
+                        }
+                    });
+                });
+            } else {
+                stringify.stringify(bonus,{header: true}, function(err, output) {
+                    fs.writeFile('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8', function(err) {
+                        if (err) {
+                            console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
+                        } else {
+                            console.log('Bonus data saved for player '+player.id);
+                        }
+                    });
+                });
+            };
+            
             //console.log(player);
             let bot = channel.connectBot({
                 room: gameRoom,
@@ -76,6 +119,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             node.game.pl.get(bot.player.id).email_type = player.email_type;
             node.game.pl.get(bot.player.id).WorkerId = player.WorkerId;
             node.game.pl.get(bot.player.id).mturkid = player.mturkid;
+            node.game.pl.get(bot.player.id).group = player.group;
             channel.registry.updateClient(bot.player.id, { data: player.data });
 
             if (player.disconnectedStage.step == 1) {
@@ -253,6 +297,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     mturkid: player.mturkid,
                     type: player.clientType,
                     session: data.session,
+                    group: player.group,
                     stage: data.stage,
                     time: data.time,
                     timestamp: data.timestamp,
@@ -276,7 +321,10 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     mturkid: player.mturkid,
                     type: player.clientType,
                     session: data.session,
-                    stage: data.stage,
+                    group: player.group,
+                    stage: data.stage.stage,
+                    step: data.stage.step,
+                    round: data.stage.round,
                     time: data.time,
                     timestamp: data.timestamp,
                     timeup: +data.timeup,
@@ -395,7 +443,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             // Save data to csv
             memory.select('recordType', '=', 'decision').save('data.csv', {
                 header: [
-                    'session', 'player', 'stage', 'step', 'round',
+                    'session', 'group', 'player', 'stage', 'step', 'round',
                     'time', 'timestamp','phase',"trial","email_id",
                     "email_type","class_val","classification",
                     "class_time","confidence","conf_time","accuracy"
@@ -414,9 +462,15 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 }, 100);
             });
 
+            //save data for bot players
             this.pl.each(function(p) {
                 let player = channel.registry.getClient(p.id);
+                
                 if (player.clientType == 'bot') {
+                    //modify group id for all stages to match group id of Phase 2
+                    for(let i = 0; i < player.data.length; i++) {
+                        player.data[i].group = player.group;
+                    };
                     //write player.data to a data.csv file (if exists, append)
                     if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv')) {
                         stringify.stringify(player.data,{header: false}, function(err, output) {
