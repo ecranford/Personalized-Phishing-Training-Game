@@ -101,9 +101,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         done: function(data) {
             //this gets data from query if the uid is passed to the link to the game from mturk, otherwise will be null
             var qs = new URLSearchParams(J.getQueryString());
-            var uid = qs.get("id");
-            var aid = qs.get("a");
-            var hid = qs.get("h");
+            var uid = qs.get("workerId");
+            var aid = qs.get("assignmentId");
+            var hid = qs.get("hitId");
             data.WorkerId = uid;
             data.AssignmentId = aid;
             data.HITId = hid;
