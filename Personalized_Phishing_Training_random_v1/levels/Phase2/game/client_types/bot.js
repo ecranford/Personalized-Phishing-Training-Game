@@ -20,9 +20,9 @@ module.exports = function(treatmentName, settings, stager,
                 let email_type = msg.data[0];
                 console.log("Bot email type is: "+email_type);
                 let avg_phish_acc = msg.data[1];
-                console.log("Average Phish accuracy is: "+avg_phish_acc);
+                //console.log("Average Phish accuracy is: "+avg_phish_acc);
                 let avg_ham_acc = msg.data[2];
-                console.log("Average Ham accuracy is: "+avg_ham_acc);
+                //console.log("Average Ham accuracy is: "+avg_ham_acc);
 
                 //set bot's choice based on average performance of all players...including bots
                 let bot_choice;

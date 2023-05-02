@@ -25,6 +25,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
      .stage('practice instructions')
 
      .repeatStage('practice trials', 4)
+     .step('practice descrip')
+     .step('practice trial')
      
      .stage('start game')
 

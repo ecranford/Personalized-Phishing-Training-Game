@@ -9,6 +9,6 @@
         "csv-stringify": "^6.3.0"
     },
     "card": {
-        "name": "Phishing\nTraining\nSimulator"
+        "name": "Phishing\nTraining\nSimulator\n(random)"
     }
 }

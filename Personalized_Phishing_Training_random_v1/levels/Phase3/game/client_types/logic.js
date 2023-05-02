@@ -13,7 +13,7 @@ const ngc = require('nodegame-client');
 const J = ngc.JSUS;
 
 //get packages to write data.csv file at end of phase 3
-var stringify = require('csv-stringify');
+var stringify = require('csv-stringify/sync');
 var fs = require('fs');
 
 module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
@@ -36,101 +36,93 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         node.on.pdisconnect(function(player) {
             //console.log(player);
             if (player.disconnected && player.stage.stage < 3) {
-            //don't allow player to reconnect if kicked
-            player.allowReconnect = false;
+                //don't allow player to reconnect if kicked
+                player.allowReconnect = false;
 
-            //Saves bonus file, and notifies players.
-            console.log("Saving data for "+player.id);
-            gameRoom.computeBonus({say: false, amt: true, addDisconnected: true});
-            // Save times of all stages in case need to figure out how much base pay to pay them
-            memory.select('player', '=', player.id).save(player.id+'_times.csv', {
-                header: [
-                    'session', 'player', 'stage', 'step', 'round', 'timestamp',
-                    'time', 'timeup'
-                ]
-            });
-            // Save current level data to csv
-            memory.select('recordType', '=', 'decision').and('player', '=', player.id).save(player.id+'_data.csv', {
-                header: [
-                    'session', 'group', 'player', 'stage', 'step', 'round',
-                    'time', 'timestamp','phase',"trial","email_id",
-                    "email_type","class_val","classification",
-                    "class_time","confidence","conf_time","accuracy"
-                ]
-            });
-            
-            //save all data to main data.csv
-            //modify group id for all stages to match group id of Phase 2
-            for(let i = 0; i < player.data.length; i++) {
-                player.data[i].group = player.group;
-            };
+                //Saves bonus file, and notifies players.
+                console.log("Saving data for "+player.id);
+                gameRoom.computeBonus({say: false, amt: true, addDisconnected: true, append: true, clients: [player.id], backup: false});
+                // Save times of all stages in case need to figure out how much base pay to pay them
+                memory.select('player', '=', player.id).save(player.id+'_times.csv', {
+                    header: [
+                        'session', 'player', 'stage', 'step', 'round', 'timestamp',
+                        'time', 'timeup'
+                    ]
+                });
+                // Save current level data to csv
+                memory.select('recordType', '=', 'decision').and('player', '=', player.id).save(player.id+'_data.csv', {
+                    header: [
+                        'session', 'group', 'player', 'WorkerId', 'mturkid','type',
+                        'stage', 'step', 'round', 'time', 'timestamp','phase','trial',
+                        'email_id', 'email_type','class_val','classification',
+                        'class_time','confidence','conf_time','accuracy'
+                    ]
+                });
+                
+                //save all data to main data.csv
+                //modify group id for all stages to match group id of Phase 2
+                for(let i = 0; i < player.data.length; i++) {
+                    player.data[i].group = player.group;
+                };
 
-            //write player.data to a data.csv file (if exists, append)
-            if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv')) {
-                stringify.stringify(player.data,{header: false}, function(err, output) {
-                    fs.appendFile('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8', function(err) {
-                        if (err) {
-                            console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
-                        } else {
-                            console.log('Data saved for player '+player.id);
-                        }
-                    });
-                });
-            } else {
-                stringify.stringify(player.data,{header: true}, function(err, output) {
-                    fs.writeFile('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8', function(err) {
-                        if (err) {
-                            console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
-                        } else {
-                            console.log('Data saved for player '+player.id);
-                        }
-                    });
-                });
-            };
+                //write player.data to a data.csv file (if exists, append)
+                if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv')) {
+                    let output = stringify.stringify(player.data,{header: false});
+                    try {
+                        fs.appendFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8');
+                        console.log('Data saved for player '+player.id);
+                    } catch (err) {
+                        console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
+                    };
+                } else {
+                    let output = stringify.stringify(player.data,{header: true});
+                    try {
+                        fs.writeFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output);
+                        console.log('Data saved for player '+player.id);
+                    } catch (err) {
+                        console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
+                    };
+                };
 
-            let totalTime = Date.now()-player.startTime;
-            let bonus = [{
-                id: player.id,
-                type: player.clientType,
-                workerid: player.WorkerId,
-                hitid: player.HITId,
-                assignmentid: player.AssignmentId,
-                access: 'NA',
-                exit: player.ExitCode,
-                totaltime: totalTime,
-                approve: 1,
-                reject: 0,
-                basepay: node.game.settings.BASE_PAY,
-                bonus: player.winRaw*node.game.settings.EXCHANGE_RATE,
-                totalpay: (totalTime/60000)*0.10, //time in minutes * $0.10 per minute, no bonus
-                disconnected: player.disconnected == null ? 0 : player.disconnected,
-                disconnectStage: player.disconnectedStage.stage+'.'+player.disconnectedStage.step+'.'+player.disconnectedStage.round
-            }];
-            // Save bonus info to main bonus.csv
-            if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv')) {
-                stringify.stringify(bonus,{header: false}, function(err, output) {
-                    fs.appendFile('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8', function(err) {
-                        if (err) {
-                            console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
-                        } else {
-                            console.log('Bonus data saved for player '+player.id);
-                        }
-                    });
-                });
-            } else {
-                stringify.stringify(bonus,{header: true}, function(err, output) {
-                    fs.writeFile('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8', function(err) {
-                        if (err) {
-                            console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
-                        } else {
-                            console.log('Bonus data saved for player '+player.id);
-                        }
-                    });
-                });
-            };
+                let totalTime = Date.now()-player.startTime;
+                let bonus = [{
+                    id: player.id,
+                    type: player.clientType,
+                    workerid: player.WorkerId,
+                    hitid: player.HITId,
+                    assignmentid: player.AssignmentId,
+                    access: 'NA',
+                    exit: player.ExitCode,
+                    totaltime: totalTime,
+                    approve: 1,
+                    reject: 0,
+                    basepay: node.game.settings.BASE_PAY,
+                    bonus: player.winRaw*node.game.settings.EXCHANGE_RATE,
+                    totalpay: (totalTime/60000)*0.10, //time in minutes * $0.10 per minute, no bonus
+                    disconnected: player.disconnected == null ? 0 : player.disconnected,
+                    disconnectStage: player.disconnectedStage.stage+'.'+player.disconnectedStage.step+'.'+player.disconnectedStage.round
+                }];
+                // Save bonus info to main bonus.csv
+                if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv')) {
+                    let output = stringify.stringify(bonus,{header: false});
+                    try {
+                        fs.appendFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8');
+                        console.log('Bonus data saved for player '+player.id);
+                    } catch (err) {
+                        console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
+                    };
+                } else {
+                    let output = stringify.stringify(bonus,{header: true});
+                    try {
+                        fs.writeFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8');
+                        console.log('Bonus data saved for player '+player.id);
+                    } catch (err) {
+                        console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
+                    };
+                };
 
-            //console.log(node.game.pl.id.getAllKeys());
-            node.game.stop();
+                //console.log(node.game.pl.id.getAllKeys());
+                node.game.stop();
             };
         });
 
@@ -297,16 +289,21 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 });
 
                 //track timeouts in player object
-                if (player.total_timeout) {
-                    if (data.timeup) {
+                if (typeof player.total_timeout === 'number') {
+                    if (data.timeup && typeof choice != 'number') {
                         player.total_timeout = player.total_timeout + 1;
                         player.consec_timeout = player.consec_timeout + 1;
                     } else {
                         player.consec_timeout = 0;
                     };
                 } else {
-                   player.total_timeout = +data.timeup;
-                   player.consec_timeout = +data.timeup; 
+                    if (typeof choice === 'number') {
+                        player.total_timeout = 0;
+                        player.consec_timeout = 0;
+                    } else {
+                        player.total_timeout = +data.timeup;
+                        player.consec_timeout = +data.timeup; 
+                    }
                 };
                 console.log(data.player+" Total timeouts: "+player.total_timeout);
                 console.log(data.player+" Consecutive timeouts: "+player.consec_timeout);
@@ -317,7 +314,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     //console.log(node.game.pl.id.getAllKeys());
                     console.log(data.player+" was removed");
                     //Redirect player to disconnected page?
-                    node.redirect('disconnected.htm'+'?code='+player.ExitCode, player.id);
+                    node.redirect('disconnected.htm', player.id);
+                    //node.redirect('disconnected.htm'+'?code='+player.ExitCode, player.id);
                     
                     //alternative method to disconnecte a player
                     //node.remoteAlert('You have been disconnected due to inactivity.\nPlease return to the HIT and enter this code to receive your partial payment: ', player.id);
@@ -386,7 +384,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         cb: function() {
 
             // Saves bonus file, and notifies players.
-            gameRoom.computeBonus({amt: true, addDisconnected: true});
+            gameRoom.computeBonus({amt: true, addDisconnected: true, append: true, backup: false});
 
             // Dump all memory.
             // memory.save('memory_all.json');
@@ -401,10 +399,10 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             // Save data to csv
             memory.select('recordType', '=', 'decision').save('data.csv', {
                 header: [
-                    'session', 'group', 'player', 'stage', 'step', 'round',
-                    'time', 'timestamp','phase',"trial","email_id",
-                    "email_type","class_val","classification",
-                    "class_time","confidence","conf_time","accuracy"
+                    'session', 'group', 'player', 'WorkerId', 'mturkid','type',
+                    'stage', 'step', 'round', 'time', 'timestamp','phase','trial',
+                    'email_id', 'email_type','class_val','classification',
+                    'class_time','confidence','conf_time','accuracy'
                 ]
             });
 
@@ -418,25 +416,21 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
                 //write player.data to a data.csv file (if exists, append)
                 if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv')) {
-                    stringify.stringify(player.data,{header: false}, function(err, output) {
-                        fs.appendFile('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8', function(err) {
-                            if (err) {
-                                console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
-                            } else {
-                                console.log('Data saved for player '+p.id);
-                            }
-                        });
-                    });
+                    let output = stringify.stringify(player.data,{header: false});
+                    try {
+                        fs.appendFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8');
+                        console.log('Data saved for player '+p.id);
+                    } catch (err) {
+                        console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
+                    };
                 } else {
-                    stringify.stringify(player.data,{header: true}, function(err, output) {
-                        fs.writeFile('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8', function(err) {
-                            if (err) {
-                                console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
-                            } else {
-                                console.log('Data saved for player '+p.id);
-                            }
-                        });
-                    });
+                    let output = stringify.stringify(player.data,{header: true});
+                    try {
+                        fs.writeFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output);
+                        console.log('Data saved for player '+p.id);
+                    } catch (err) {
+                        console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
+                    };
                 };
 
                 let totalTime = Date.now()-player.startTime;
@@ -457,27 +451,24 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     disconnected: player.disconnected == null ? 0 : player.disconnected,
                     disconnectStage: 'NA'
                 }];
+
                 // Save bonus info to main bonus.csv
                 if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv')) {
-                    stringify.stringify(bonus,{header: false}, function(err, output) {
-                        fs.appendFile('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8', function(err) {
-                            if (err) {
-                                console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
-                            } else {
-                                console.log('Bonus data saved for player '+p.id);
-                            }
-                        });
-                    });
+                    let output = stringify.stringify(bonus,{header: false});
+                    try {
+                        fs.appendFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8');
+                        console.log('Bonus data saved for player '+p.id);
+                    } catch (err) {
+                        console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
+                    };
                 } else {
-                    stringify.stringify(bonus,{header: true}, function(err, output) {
-                        fs.writeFile('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8', function(err) {
-                            if (err) {
-                                console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
-                            } else {
-                                console.log('Bonus data saved for player '+p.id);
-                            }
-                        });
-                    });
+                    let output = stringify.stringify(bonus,{header: true});
+                    try {
+                        fs.writeFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8');
+                        console.log('Bonus data saved for player '+p.id);
+                    } catch (err) {
+                        console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
+                    };
                 };
             });
 

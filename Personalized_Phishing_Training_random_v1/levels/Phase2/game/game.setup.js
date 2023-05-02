@@ -23,12 +23,12 @@
 
     // ## verbosity
     // Changes the quantity of output to console in the browser and Node.JS
-    // setup.verbosity = 1;
+     setup.verbosity = 0;
 
     // ## debug
     // Changes the behavior of nodeGame in relation to errors in the browser
     // and Node.JS. If TRUE, errors are thrown and displayed.
-    setup.debug = true;
+    setup.debug = false;
 
     // ## window
     // Changes the appereance and some of the features in the browser.

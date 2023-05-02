@@ -13,7 +13,7 @@ const ngc = require('nodegame-client');
 const J = ngc.JSUS;
 
 //get packages to write data.csv file at end of phase 3
-var stringify = require('csv-stringify');
+var stringify = require('csv-stringify/sync');
 var fs = require('fs');
 
 module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
@@ -49,84 +49,84 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         });
         
         node.on.pdisconnect(function(player) {
-            if (player.disconnected) {
-            //don't allow player to reconnect
-            player.allowReconnect = false;
-
-            //player data will save when bot finishes, but...
-            //also need to compute current bonus whenever a player disconnects...but probably will just pay them base payment?
-            //Saves bonus file, and notifies players.
-            gameRoom.computeBonus({say: false, amt: true, addDisconnected: true});
-            // Save times of all stages in case need to figure out how much base pay to pay them
-            memory.select('player', '=', player.id).save(player.id+'_times.csv', {
-                header: [
-                    'session', 'player', 'stage', 'step', 'round', 'timestamp',
-                    'time', 'timeup'
-                ]
-            });
-            let totalTime = Date.now()-player.startTime;
-            let bonus = [{
-                id: player.id,
-                type: player.clientType,
-                workerid: player.WorkerId,
-                hitid: player.HITId,
-                assignmentid: player.AssignmentId,
-                access: 'NA',
-                exit: player.ExitCode,
-                totaltime: totalTime,
-                approve: 1,
-                reject: 0,
-                basepay: node.game.settings.BASE_PAY,
-                bonus: player.winRaw*node.game.settings.EXCHANGE_RATE,
-                totalpay: (totalTime/60000)*0.10, //time in minutes * $0.10 per minute, no bonus
-                disconnected: player.disconnected == null ? 0 : player.disconnected,
-                disconnectStage: player.disconnectedStage.stage+'.'+player.disconnectedStage.step+'.'+player.disconnectedStage.round
-            }];
-            // Save bonus info to main bonus.csv
-            if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv')) {
-                stringify.stringify(bonus,{header: false}, function(err, output) {
-                    fs.appendFile('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8', function(err) {
-                        if (err) {
-                            console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
-                        } else {
-                            console.log('Bonus data saved for player '+player.id);
-                        }
-                    });
-                });
-            } else {
-                stringify.stringify(bonus,{header: true}, function(err, output) {
-                    fs.writeFile('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8', function(err) {
-                        if (err) {
-                            console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
-                        } else {
-                            console.log('Bonus data saved for player '+player.id);
-                        }
-                    });
-                });
-            };
-            
             //console.log(player);
-            let bot = channel.connectBot({
-                room: gameRoom,
-                replaceId: player.id,
-                gotoStep: player.disconnectedStage
-            });
-            console.log("---------Player "+player.id+" replaced with bot "+bot.player.id+"---------");
-            
-            console.log(node.game.pl.id.getAllKeys());
+            if (player.disconnected) {
+                //don't allow player to reconnect
+                player.allowReconnect = false;
 
-            node.game.pl.get(bot.player.id).email_id = player.email_id;
-            node.game.pl.get(bot.player.id).email_type = player.email_type;
-            node.game.pl.get(bot.player.id).WorkerId = player.WorkerId;
-            node.game.pl.get(bot.player.id).mturkid = player.mturkid;
-            node.game.pl.get(bot.player.id).group = player.group;
-            channel.registry.updateClient(bot.player.id, { data: player.data });
+                //player data will save when bot finishes, but...
+                //also need to compute current bonus whenever a player disconnects...but probably will just pay them base payment?
+                //Saves bonus file, and notifies players.
+                gameRoom.computeBonus({say: false, amt: true, addDisconnected: true, append: true, clients: [player.id], backup: false});
+                // Save times of all stages in case need to figure out how much base pay to pay them
+                memory.select('player', '=', player.id).save(player.id+'_times.csv', {
+                    header: [
+                        'session', 'player', 'stage', 'step', 'round', 'timestamp',
+                        'time', 'timeup'
+                    ]
+                });
 
-            if (player.disconnectedStage.step == 1) {
-                node.say("averages", bot.player.id, [player.email_type, player.avg_phish_acc, player.avg_ham_acc]);
-            };
+                console.log(player);
 
-            //console.log(node.game.pl.id.getAllKeys());
+                let totalTime = Date.now()-player.startTime;
+                let bonus = [{
+                    id: player.id,
+                    type: player.clientType,
+                    workerid: player.WorkerId,
+                    hitid: player.HITId,
+                    assignmentid: player.AssignmentId,
+                    access: 'NA',
+                    exit: player.ExitCode,
+                    totaltime: totalTime,
+                    approve: 1,
+                    reject: 0,
+                    basepay: node.game.settings.BASE_PAY,
+                    bonus: player.winRaw*node.game.settings.EXCHANGE_RATE,
+                    totalpay: (totalTime/60000)*0.10, //time in minutes * $0.10 per minute, no bonus
+                    disconnected: player.disconnected == null ? 0 : player.disconnected,
+                    disconnectStage: player.disconnectedStage.stage+'.'+player.disconnectedStage.step+'.'+player.disconnectedStage.round
+                }];
+                // Save bonus info to main bonus.csv
+                if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv')) {
+                    let output = stringify.stringify(bonus,{header: false});
+                    try {
+                        fs.appendFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8');
+                        console.log('Bonus data saved for player '+player.id);
+                    } catch (err) {
+                        console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
+                    };
+                } else {
+                    let output = stringify.stringify(bonus,{header: true});
+                    try {
+                        fs.writeFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8');
+                        console.log('Bonus data saved for player '+player.id);
+                    } catch (err) {
+                        console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
+                    };
+                };
+                
+                //console.log(player);
+                let bot = channel.connectBot({
+                    room: gameRoom,
+                    replaceId: player.id,
+                    gotoStep: player.disconnectedStage
+                });
+                console.log("---------Player "+player.id+" replaced with bot "+bot.player.id+"---------");
+                
+                //console.log(node.game.pl.id.getAllKeys());
+
+                node.game.pl.get(bot.player.id).email_id = player.email_id;
+                node.game.pl.get(bot.player.id).email_type = player.email_type;
+                node.game.pl.get(bot.player.id).WorkerId = player.WorkerId;
+                node.game.pl.get(bot.player.id).mturkid = player.mturkid;
+                node.game.pl.get(bot.player.id).group = player.group;
+                channel.registry.updateClient(bot.player.id, { data: player.data });
+
+                if (player.disconnectedStage.step == 1) {
+                    node.say("averages", bot.player.id, [player.email_type, player.avg_phish_acc, player.avg_ham_acc]);
+                };
+
+                //console.log(node.game.pl.id.getAllKeys());
             };
         });
 
@@ -169,6 +169,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 //console.log(p.id+" data is:");
                 //console.table(player.data);
                 let total_phish_scores = player.data.filter(item => item.email_type === "PHISHING");
+                total_phish_scores = total_phish_scores.slice(-20); //take only last 20 emails
                 //console.log(p.id+" phish accuracies is: "+total_phish_scores);
                 let total_phish_score = 0;
                 let average_phish_acc;
@@ -184,6 +185,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 //console.log(p.id+" avg phish accuracy is: "+average_phish_acc);
                 
                 let total_ham_scores = player.data.filter(item => item.email_type === "HAM");
+                total_ham_scores = total_ham_scores.slice(-20); //take only last 20 emails
                 //console.log(p.id+" ham accuracies is: "+total_ham_scores);
                 let total_ham_score = 0;
                 let average_ham_acc;
@@ -211,8 +213,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             } else {
                 avg_ham_acc = 0.5;
             };
-            //console.log("Avg phish accuracy is: "+avg_phish_acc);
-            //console.log("Avg ham accuracy is: "+avg_ham_acc);   
+            console.log("Avg phish accuracy is: "+avg_phish_acc);
+            console.log("Avg ham accuracy is: "+avg_ham_acc);   
 
             //send phase, trial, and email data to each participant
             this.pl.each(function(p) {
@@ -290,6 +292,10 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 console.log(data.player+" Confidence: "+confidence_val);
                 console.log(data.player+" Accuracy: "+acc);
 
+                // Update earnings counts, so that it can be saved
+                // with GameRoom.computeBonus.
+                gameRoom.updateWin(data.player, acc);
+
                 //save data to memory
                 memory.add({recordType: "decision",
                     player: data.player,
@@ -341,16 +347,21 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 });
 
                 //track timeouts in player object
-                if (player.total_timeout) {
-                    if (data.timeup) {
+                if (typeof player.total_timeout === 'number') {
+                    if (data.timeup && typeof choice != 'number') {
                         player.total_timeout = player.total_timeout + 1;
                         player.consec_timeout = player.consec_timeout + 1;
                     } else {
                         player.consec_timeout = 0;
                     };
                 } else {
-                   player.total_timeout = +data.timeup;
-                   player.consec_timeout = +data.timeup; 
+                    if (typeof choice === 'number') {
+                        player.total_timeout = 0;
+                        player.consec_timeout = 0;
+                    } else {
+                        player.total_timeout = +data.timeup;
+                        player.consec_timeout = +data.timeup; 
+                    }
                 };
                 console.log(data.player+" Total timeouts: "+player.total_timeout);
                 console.log(data.player+" Consecutive timeouts: "+player.consec_timeout);
@@ -378,7 +389,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     //console.log(node.game.pl.id.getAllKeys());
                     console.log(p.id+" was removed");
                     //Redirect player to disconnected page
-                    node.redirect('disconnected.htm'+'?code='+player.ExitCode, player.id);
+                    node.redirect('disconnected.htm', player.id);
+                    //node.redirect('disconnected.htm'+'?code='+player.ExitCode, player.id);
                     
                     //alternative method to disconnecte a player
                     //node.remoteAlert('You have been disconnected due to inactivity.\nPlease return to the HIT and enter this code to receive your partial payment: ', player.id);
@@ -426,9 +438,6 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 console.log(p.id+" "+phase_name+" Score: "+phase_score);
                 console.log(p.id+" Total Score: "+total_score);
                 node.say("scores", p.id, [phase_score,total_score]);
-                // Update earnings counts, so that it can be saved
-                // with GameRoom.computeBonus.
-                gameRoom.updateWin(p.id, phase_score);
 
             });
         },
@@ -443,10 +452,10 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             // Save data to csv
             memory.select('recordType', '=', 'decision').save('data.csv', {
                 header: [
-                    'session', 'group', 'player', 'stage', 'step', 'round',
-                    'time', 'timestamp','phase',"trial","email_id",
-                    "email_type","class_val","classification",
-                    "class_time","confidence","conf_time","accuracy"
+                    'session', 'group', 'player', 'WorkerId', 'mturkid','type',
+                    'stage', 'step', 'round', 'time', 'timestamp','phase','trial',
+                    'email_id', 'email_type','class_val','classification',
+                    'class_time','confidence','conf_time','accuracy'
                 ]
             });
 
@@ -461,10 +470,12 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     channel.moveClientToGameLevel(msg.from, levelName, currentRoom);
                 }, 100);
             });
-
+            
             //save data for bot players
             this.pl.each(function(p) {
                 let player = channel.registry.getClient(p.id);
+
+                console.log(p.id + ' ' + player.clientType);
                 
                 if (player.clientType == 'bot') {
                     //modify group id for all stages to match group id of Phase 2
@@ -473,29 +484,24 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     };
                     //write player.data to a data.csv file (if exists, append)
                     if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv')) {
-                        stringify.stringify(player.data,{header: false}, function(err, output) {
-                            fs.appendFile('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8', function(err) {
-                                if (err) {
-                                    console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
-                                } else {
-                                    console.log('Data saved for player '+p.id);
-                                }
-                            });
-                        });
+                        let output = stringify.stringify(player.data,{header: false});
+                        try {
+                            fs.appendFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8');
+                            console.log('(append file) Data saved for player '+p.id);
+                        } catch (err) {
+                            console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
+                        };
                     } else {
-                        stringify.stringify(player.data,{header: true}, function(err, output) {
-                            fs.writeFile('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8', function(err) {
-                                if (err) {
-                                    console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
-                                } else {
-                                    console.log('Data saved for player '+p.id);
-                                }
-                            });
-                        });
+                        let output = stringify.stringify(player.data,{header: true});
+                        try {
+                            fs.writeFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8');
+                            console.log('(new file) Data saved for player '+p.id);
+                        } catch (err) {
+                            console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
+                        };
                     };
                 };
             });
-
         }
     });
 };

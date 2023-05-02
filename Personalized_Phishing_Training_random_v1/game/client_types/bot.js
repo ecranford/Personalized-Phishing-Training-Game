@@ -56,7 +56,13 @@ module.exports = function(treatmentName, settings, stager,
         }
     });
 
-    stager.extendStep('practice trials', {
+    stager.extendStep('practice description', {
+        cb: function() {
+            node.done();
+        }
+    });
+
+    stager.extendStep('practice trial', {
         cb: function() {
             node.done();
         }

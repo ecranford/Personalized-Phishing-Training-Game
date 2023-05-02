@@ -13,7 +13,7 @@ const ngc = require('nodegame-client');
 const J = ngc.JSUS;
 
 //get packages to write data.csv file at end of phase 3
-var stringify = require('csv-stringify');
+var stringify = require('csv-stringify/sync');
 var fs = require('fs');
 
 module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
@@ -25,10 +25,25 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
     var emails = require("../../emails.json");
     //console.log(emails);
 
+    //var to store and check mturk ids
+    var mturk_ids;
+    
+    // Setting the SOLO rule: game steps each time node.done() is called,
+    // ignoring the state of other clients.
+    stager.setDefaultStepRule(ngc.stepRules.SOLO);
+
+    // Disabling step syncing for other clients: the logic does not
+    // push step updates to other clients when it changes step.
+    stager.setDefaultProperty('syncStepping', false);
+
     // Must implement the stages here.
 
     stager.setOnInit(function() {
         // Initialize the client.
+
+        //load mturk ids
+        mturk_ids = require("../../mturk-ids.json");
+        //console.log("unparsed mturk-ids are: "+mturk_ids);
 
         // Will automatically save every entry in the database
         // to file memory.json (format ndjson).
@@ -42,6 +57,22 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         channel.registry.updateClient(p.id, { ExitCode: J.uniqueKey({}, J.randomString(6, 'aA1')) }); //creates unique ExitCode 6 char string of random num/letters
         channel.registry.updateClient(p.id, { group: gameRoom.name.substring(4)}); //creates goup id from room number
         channel.registry.updateClient(p.id, { startTime: Date.now()}); //create object to save player start time
+        channel.registry.updateClient(p.id, { repeat: false}); //create object to save player repeated boolean
+        });
+
+        node.on('in.say.PLAYER_UPDATE', function(msg) {
+            if (msg.text === 'stage') {
+                setTimeout(function() {
+                    node.game.gotoStep(msg.data.stage);
+                });
+            }
+        });
+
+        // Last instruction in the init function.
+        // Game on clients must be started manually
+        // (because syncStepping is disabled).
+        setTimeout(function() {
+            node.remoteCommand('start', node.game.pl.first().id);
         });
 
         node.on.pdisconnect(function(player) {
@@ -50,70 +81,70 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 //don't allow player to reconnect if kicked
                 player.allowReconnect = false;
 
-                //player data will save when bot finishes, but...
-                //also need to compute current bonus whenever a player disconnects...but probably will just pay them base payment?
-                //Saves bonus file, and notifies players.
-                console.log("Saving data for "+player.id);
-                gameRoom.computeBonus({say: false, amt: true, addDisconnected: true});
-                // Save times of all stages in case need to figure out how much base pay to pay them
-                memory.select('player', '=', player.id).save(player.id+'_times.csv', {
-                    header: [
-                        'session', 'player', 'stage', 'step', 'round', 'timestamp',
-                        'time', 'timeup'
-                    ]
-                });
-                // Save data to csv
-                memory.select('recordType', '=', 'decision').and('player', '=', player.id).save(player.id+'_data.csv', {
-                    header: [
-                        'session', 'group', 'player', 'stage', 'step', 'round',
-                        'time', 'timestamp','phase',"trial","email_id",
-                        "email_type","class_val","classification",
-                        "class_time","confidence","conf_time","accuracy"
-                    ]
-                });
-
-                let totalTime = Date.now()-player.startTime;
-                let bonus = [{
-                    id: player.id,
-                    type: player.clientType,
-                    workerid: player.WorkerId,
-                    hitid: player.HITId,
-                    assignmentid: player.AssignmentId,
-                    access: 'NA',
-                    exit: player.ExitCode,
-                    totaltime: totalTime,
-                    approve: 1,
-                    reject: 0,
-                    basepay: node.game.settings.BASE_PAY,
-                    bonus: player.winRaw*node.game.settings.EXCHANGE_RATE,
-                    totalpay: (totalTime/60000)*0.10, //time in minutes * $0.10 per minute, no bonus
-                    disconnected: player.disconnected == null ? 0 : player.disconnected,
-                    disconnectStage: player.disconnectedStage.stage+'.'+player.disconnectedStage.step+'.'+player.disconnectedStage.round
-                }];
-                // Save bonus info to main bonus.csv
-                if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv')) {
-                    stringify.stringify(bonus,{header: false}, function(err, output) {
-                        fs.appendFile('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8', function(err) {
-                            if (err) {
-                                console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
-                            } else {
-                                console.log('Bonus data saved for player '+player.id);
-                            }
-                        });
-                    });
+                if (player.repeat) {
+                    node.game.stop();
                 } else {
-                    stringify.stringify(bonus,{header: true}, function(err, output) {
-                        fs.writeFile('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8', function(err) {
-                            if (err) {
-                                console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
-                            } else {
-                                console.log('Bonus data saved for player '+player.id);
-                            }
-                        });
+                    //player data will save when bot finishes, but...
+                    //also need to compute current bonus whenever a player disconnects...but probably will just pay them base payment?
+                    //Saves bonus file, and notifies players.
+                    console.log("Saving data for "+player.id);
+                    gameRoom.computeBonus({say: false, amt: true, addDisconnected: true, append: true, clients: [player.id]});
+                    // Save times of all stages in case need to figure out how much base pay to pay them
+                    memory.select('player', '=', player.id).save(player.id+'_times.csv', {
+                        header: [
+                            'session', 'player', 'stage', 'step', 'round', 'timestamp',
+                            'time', 'timeup'
+                        ]
                     });
+                    // Save data to csv
+                    memory.select('recordType', '=', 'decision').and('player', '=', player.id).save(player.id+'_data.csv', {
+                        header: [
+                            'session', 'group', 'player', 'WorkerId', 'mturkid','type',
+                            'stage', 'step', 'round', 'time', 'timestamp','phase','trial',
+                            'email_id', 'email_type','class_val','classification',
+                            'class_time','confidence','conf_time','accuracy'
+                        ]
+                    });
+
+                    let totalTime = Date.now()-player.startTime;
+                    let bonus = [{
+                        id: player.id,
+                        type: player.clientType,
+                        workerid: player.WorkerId,
+                        hitid: player.HITId,
+                        assignmentid: player.AssignmentId,
+                        access: 'NA',
+                        exit: player.ExitCode,
+                        totaltime: totalTime,
+                        approve: 1,
+                        reject: 0,
+                        basepay: node.game.settings.BASE_PAY,
+                        bonus: player.winRaw*node.game.settings.EXCHANGE_RATE,
+                        totalpay: (totalTime/60000)*0.10, //time in minutes * $0.10 per minute, no bonus
+                        disconnected: player.disconnected == null ? 0 : player.disconnected,
+                        disconnectStage: player.disconnectedStage.stage+'.'+player.disconnectedStage.step+'.'+player.disconnectedStage.round
+                    }];
+                    // Save bonus info to main bonus.csv
+                    if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv')) {
+                        let output = stringify.stringify(bonus,{header: false});
+                        try {
+                            fs.appendFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8');
+                            console.log('Bonus data saved for player '+player.id);
+                        } catch (err) {
+                            console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
+                        };
+                    } else {
+                        let output = stringify.stringify(bonus,{header: true});
+                        try {
+                            fs.writeFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv', output, 'utf8');
+                            console.log('Bonus data saved for player '+player.id);
+                        } catch (err) {
+                            console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
+                        };
+                    };
+                    //console.log(node.game.pl.id.getAllKeys());
+                    node.game.stop();
                 };
-                //console.log(node.game.pl.id.getAllKeys());
-                node.game.stop();
             };
         });
 
@@ -135,11 +166,43 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 //two ways to access client object
                 //console.log(this.pl.get(data.player));
                 //console.log(channel.registry.getClient(data.player));
+                let player = this.pl.get(data.player);
+
+                //if WorkerId or mturkid are already in database, then redirect player, but don't want to save any data
+                //else save WorkerId and mturkid
+                let hasWorkerId = false;
+                let hasMturkId = false;
+                for (let i = 0; i < mturk_ids.length; i++) {
+                    if(mturk_ids[i].workerid == data.WorkerId){hasWorkerId = true; break;}
+                };
+
+                for (let i = 0; i < mturk_ids.length; i++) {
+                    if(mturk_ids[i].mturkid == data.forms.mturkid.value){hasMturkId = true; break;}
+                };
+
+                if (hasWorkerId || hasMturkId) {
+                    player.repeat = true;
+                    node.redirect('repeated.htm', data.player);
+                    //alternative method to disconnect player
+                    //node.remoteAlert('Records indicate you have already participated.\nYou will be disconnected.', data.player);
+                    //node.disconnectClient(player);
+                } else {
+                    mturk_ids.push({workerid: data.WorkerId, mturkid: data.forms.mturkid.value});
+                    //console.log("mturk ids are now: "+mturk_ids);
+                    let myjson = JSON.stringify(mturk_ids);
+                    //console.log("myjson is: "+myjson);
+                    try {
+                        fs.writeFileSync('./games_available/Personalized_Phishing_Training_random_v1/mturk-ids.json', myjson, 'utf8');
+                        console.log('mturkid saved for player '+data.player);
+                    } catch (err) {
+                        console.log('Some error occured - mturkid not saved or corrupted file saved for player '+data.player);
+                    };
+                }
             });
         }
     });
 
-    stager.extendStep('practice trials', {
+    stager.extendStep('practice trial', {
         cb: function() {
             this.pl.each(function(p) {
                 //choose which email to present on each trial of practice
@@ -268,6 +331,10 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 console.log(data.player+" Confidence: "+confidence_val);
                 console.log(data.player+" Accuracy: "+acc);
 
+                // Update earnings counts, so that it can be saved
+                // with GameRoom.computeBonus.
+                gameRoom.updateWin(data.player, acc);
+
                 //save data to memory
                 memory.add({recordType: "decision",
                     player: data.player,
@@ -319,16 +386,21 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 });
 
                 //track timeouts in player object
-                if (player.total_timeout) {
-                    if (data.timeup) {
+                if (typeof player.total_timeout === 'number') {
+                    if (data.timeup && typeof choice != 'number') {
                         player.total_timeout = player.total_timeout + 1;
                         player.consec_timeout = player.consec_timeout + 1;
                     } else {
                         player.consec_timeout = 0;
                     };
                 } else {
-                   player.total_timeout = +data.timeup;
-                   player.consec_timeout = +data.timeup; 
+                    if (typeof choice === 'number') {
+                        player.total_timeout = 0;
+                        player.consec_timeout = 0;
+                    } else {
+                        player.total_timeout = +data.timeup;
+                        player.consec_timeout = +data.timeup; 
+                    }
                 };
                 console.log(data.player+" Total timeouts: "+player.total_timeout);
                 console.log(data.player+" Consecutive timeouts: "+player.consec_timeout);
@@ -342,7 +414,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     //console.log(node.game.pl.id.getAllKeys());
                     console.log(data.player+" was removed");
                     //Redirect player to disconnected page?
-                    node.redirect('disconnected.htm'+'?code='+player.ExitCode, player.id);
+                    node.redirect('disconnected.htm', player.id);
+                    //node.redirect('disconnected.htm'+'?code='+player.ExitCode, player.id);
                     
                     //alternative method to disconnecte a player
                     //node.remoteAlert('You have been disconnected due to inactivity.\nPlease return to the HIT and enter this code to receive your partial payment: ', player.id);
@@ -387,10 +460,6 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 console.log(p.id+" "+phase_name+" Score: "+phase_score);
                 console.log(p.id+" Total Score: "+total_score);
                 node.say("scores", p.id, [phase_score,total_score]);
-                // Update earnings counts, so that it can be saved
-                // with GameRoom.computeBonus.
-                gameRoom.updateWin(p.id, phase_score);
-
             });
         },
         cb: function() {
@@ -404,10 +473,10 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             // Save data to csv
             memory.select('recordType', '=', 'decision').save('data.csv', {
                 header: [
-                    'session', 'group', 'player', 'stage', 'step', 'round',
-                    'time', 'timestamp','phase',"trial","email_id",
-                    "email_type","class_val","classification",
-                    "class_time","confidence","conf_time","accuracy"
+                    'session', 'group', 'player', 'WorkerId', 'mturkid','type',
+                    'stage', 'step', 'round', 'time', 'timestamp','phase','trial',
+                    'email_id', 'email_type','class_val','classification',
+                    'class_time','confidence','conf_time','accuracy'
                 ]
             });
 

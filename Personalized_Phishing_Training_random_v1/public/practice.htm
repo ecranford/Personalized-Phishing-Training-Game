@@ -3,15 +3,29 @@
 <link rel="stylesheet" href="/lib/bootstrap/bootstrap.min.css" />
 <link rel="stylesheet" href="/stylesheets/nodegame.css" />
 <link rel="stylesheet" href="css/style.css" />
+
 <style>
     div.ex1 {
       background-color: #FFFFFF;
       width: 100%;
-      height: 420px;
+      height: 450px;
       overflow: scroll;
-      padding: 17px;
+      padding: 15px;
       font-size: 16px;
     }
+    div.ex2 {
+      background-color: #FFFFFF;
+      width: 100%;
+      height: 450px;
+      padding: 15px;
+      font-size: 16px;
+    }
+    datalist {
+    display: flex;
+    justify-content: space-between;
+    color: #333333;
+    width: 100%;
+  }
     </style>
 
 <body>
@@ -24,12 +38,15 @@
 	    <p>The purpose of these emails is to help you familiarize yourself with the kinds of emails 
             that you will observe during this task. Please click the "START" button to read the examples.</p>
     </div> 
-    <div id="examples" style="display: none">
+    <div id="description" style="display: none">
         <span id="explanation"></span>
         <br><br>
+    </div>
+  </div>
+  <div id="examples" style="display: none;margin: 0 auto;" >
         <table align ="center">
             <tr>
-                <td align="center" >
+                <td align="center" width="68%">
                     <div align="justify" class="ex1">
                         <b>From: </b> <span id="source"></span>
                         <br><br>
@@ -38,10 +55,22 @@
                         <span id="body"></span>
                     </div>
                 </td>
+                <td>
+                    <div id="classify" class="ex2">
+                      <!--  <br>
+                      <datalist id="tickmarks" style="font-size: 14px">
+                        <option value="50" label="50"></option>            
+                        <option value="100" label="100"></option>
+                      </datalist>
+                      <datalist id="tickmarks" style="font-size: 12px">
+                        <option value="50" label="Not Confident at All"></option>
+                        <option value="100" label="Fully Confident"></option>
+                      </datalist> -->
+                    </div>
+                  </td>
             </tr>
         </table>
         <br>
-        <p align="center">Press "NEXT" to continue.</p>
-    </div>
+        <p align="center">Press "NEXT" button when done.</p>
   </div>
 </body>

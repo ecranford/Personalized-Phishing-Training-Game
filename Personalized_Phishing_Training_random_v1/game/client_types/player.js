@@ -18,6 +18,10 @@ const J = ngc.JSUS;
 
 module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
+    // Setting the SOLO rule: game steps each time node.done() is called,
+    // ignoring the state of other clients.
+    stager.setDefaultStepRule(ngc.stepRules.SOLO);
+
     stager.setOnInit(function() {
 
         // Initialize the client.
@@ -41,6 +45,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         }});
         this.visualTimer = node.widgets.append('VisualTimer', header);
         this.doneButton = node.widgets.append('DoneButton', header);
+        this.backButton = node.widgets.append('BackButton', header);
 
         // Additional debug information while developing the game.
         // this.debugInfo = node.widgets.append('DebugInfo', header)
@@ -50,6 +55,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         frame: 'pre-consent.htm',        
         init: function(){
             node.game.visualTimer.hide();
+            node.game.backButton.hide();
         },
         cb: function() {
             //nothing here yet
@@ -253,8 +259,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
     stager.extendStep('instructions', {
         frame: 'instructions.htm',
-        init: function(){
-            node.game.visualTimer.show();
+        init: function() {
+            node.game.backButton.hide();
         },
         cb: function() {
             //nothing here yet
@@ -262,6 +268,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
     });
 
     stager.extendStep('instruction quiz', {
+        init: function() {
+            node.game.backButton.show();
+        },
         cb: function() {
             // Modify CSS rules on the fly.
             W.cssRule('.choicetable-left, .choicetable-right ' +
@@ -354,7 +363,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
     stager.extendStep('practice instructions', {
         frame: 'practice.htm',
         init: function() {
+            node.game.visualTimer.show();
             node.game.doneButton.hide();
+            node.game.backButton.hide();
             W.cssRule('table {width: 100%; height: 420px;}');
         },
         cb: function() {
@@ -371,7 +382,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         }
     });
 
-    stager.extendStep('practice trials', {
+    stager.extendStep('practice descrip', {
         frame: 'practice.htm',
         init: function() {
             node.game.doneButton.hide();
@@ -398,25 +409,87 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             }
 
             W.hide('pract_inst');
-            W.show('examples');
-            W.cssRule('table {border: 1px solid black; padding: 15px; text-align: left; width: 100%;}');
+            W.show('description');
+            //W.cssRule('table {border: 1px solid black; padding: 15px; text-align: left; width: 100%;}');
             W.setInnerHTML('explanation', explanation);
-            node.on.data('email', function(msg) {
-                W.setInnerHTML('source', msg.data[0].sender);
-                W.setInnerHTML('subject', msg.data[0].subject);
-                W.setInnerHTML('body', msg.data[0].body);
-            });
         },
         // Make a widget for a Next button.
         widget: {
             name: 'DoneButton',
             id: 'NextButton',
-            text: 'Next',
+            text: 'Show Email',
             className: 'btn btn-lg btn-secondary btn-block'
-        },
-        exit: function() {
-            node.game.doneButton.show();
         }
+    });
+
+    stager.extendStep('practice trial', {
+        frame: 'practice.htm',
+        init: function() {
+            node.game.doneButton.show();
+        },
+        donebutton: {
+            text: 'Next'
+        },
+
+        cb: function() {
+            W.show('examples');
+            W.cssRule('#examples {max-width: 54em;}');
+            W.cssRule('table, tr, td {border: 2px solid black;}');
+            W.cssRule('table {width: 100%;}');
+            W.cssRule('.panel {border: none;box-shadow: none;}');
+            W.cssRule('.panel-body {padding: 0px;}');
+            W.cssRule('table.choicetable {border: none;width: 50%;}');
+            W.cssRule('.choicetable tr td {background: lightgray}');
+            W.cssRule('.container-slider {height: 25px}');
+            W.cssRule('.volume-slider::-moz-range-thumb {height: 25px; width: 25px; background: gray}');
+            W.cssRule('.volume-slider::-moz-range-track {border: 1px solid gray}');
+            node.on.data('email', function(msg) {
+                W.setInnerHTML('source', msg.data[0].sender);
+                W.setInnerHTML('subject', msg.data[0].subject);
+                W.setInnerHTML('body', msg.data[0].body);
+            });
+            //set the step attribute to 5 so that the slider is easier to set
+            W.getElementsByClassName('volume-slider')[0].setAttribute('step', '5');
+
+        },
+
+        // Make a widget step for the classification questions.
+        widget: {
+            name: 'ChoiceManager', 
+            root: 'classify',
+            id: 'decision',
+            options: {
+                mainText: 'Answer the following questions:',
+                forms: [
+                    {
+                        name: 'ChoiceTable',
+                        id: 'classification',
+                        orientation: 'H',
+                        mainText: '1. Is this a phishing email?',
+                        choices: ['Yes',
+                                  'No'
+                                ],
+                        requiredChoice: true
+                    },
+                    {
+                        name: 'Slider',
+                        id: 'confidence',
+                        mainText: '2. How confident are you in your answer for question 1?',
+                        texts: {
+                            currentValue: function(widget, value) {
+                                return '<datalist id="tickmarks" style="font-size: 14px"><option value="0" label="0"></option><option value="100" label="100"></option></datalist><datalist id="tickmarks" style="font-size: 12px"><option value="0" label="Not Confident at All"></option><option value="100" label="Fully Confident"></option></datalist>Confidence Level: ' + value;
+                            }},
+                        min: 0,
+                        max: 100,
+                        step: 5, //this doesn't actually do anything in ng-v7.1.0, instead it is created in the cb function
+                        initialValue: 0,
+                        displayNoChange: false,
+                        required: true
+                    }
+                ]
+            }
+        }
+
     });
 
     stager.extendStep('start game', {
