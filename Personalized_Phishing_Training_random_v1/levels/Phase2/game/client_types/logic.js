@@ -66,7 +66,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     ]
                 });
 
-                console.log(player);
+                //console.log(player);
 
                 let totalTime = Date.now()-player.startTime;
                 let bonus = [{
@@ -105,25 +105,50 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     };
                 };
                 
-                //console.log(player);
-                let bot = channel.connectBot({
-                    room: gameRoom,
-                    replaceId: player.id,
-                    gotoStep: player.disconnectedStage
-                });
-                console.log("---------Player "+player.id+" replaced with bot "+bot.player.id+"---------");
-                
-                //console.log(node.game.pl.id.getAllKeys());
+                if (player.disconnectedStage.stage == 2) {
+                    //modify group id for all stages to match group id of Phase 2
+                    for(let i = 0; i < player.data.length; i++) {
+                        player.data[i].group = player.group;
+                    };
+                    //write player.data to a data.csv file (if exists, append)
+                    if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv')) {
+                        let output = stringify.stringify(player.data,{header: false});
+                        try {
+                            fs.appendFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8');
+                            console.log('(append file) Data saved for player '+player.id);
+                        } catch (err) {
+                            console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
+                        };
+                    } else {
+                        let output = stringify.stringify(player.data,{header: true});
+                        try {
+                            fs.writeFileSync('./games_available/Personalized_Phishing_Training_random_v1/data/data.csv', output, 'utf8');
+                            console.log('(new file) Data saved for player '+player.id);
+                        } catch (err) {
+                            console.log('Some error occured - file either not saved or corrupted file saved for player '+player.id);
+                        };
+                    };
+                } else {
+                    //console.log(player);
+                    let bot = channel.connectBot({
+                        room: gameRoom,
+                        replaceId: player.id,
+                        gotoStep: player.disconnectedStage
+                    });
+                    console.log("---------Player "+player.id+" replaced with bot "+bot.player.id+"---------");
+                    
+                    //console.log(node.game.pl.id.getAllKeys());
 
-                node.game.pl.get(bot.player.id).email_id = player.email_id;
-                node.game.pl.get(bot.player.id).email_type = player.email_type;
-                node.game.pl.get(bot.player.id).WorkerId = player.WorkerId;
-                node.game.pl.get(bot.player.id).mturkid = player.mturkid;
-                node.game.pl.get(bot.player.id).group = player.group;
-                channel.registry.updateClient(bot.player.id, { data: player.data });
+                    node.game.pl.get(bot.player.id).email_id = player.email_id;
+                    node.game.pl.get(bot.player.id).email_type = player.email_type;
+                    node.game.pl.get(bot.player.id).WorkerId = player.WorkerId;
+                    node.game.pl.get(bot.player.id).mturkid = player.mturkid;
+                    node.game.pl.get(bot.player.id).group = player.group;
+                    channel.registry.updateClient(bot.player.id, { data: player.data });
 
-                if (player.disconnectedStage.step == 1) {
-                    node.say("averages", bot.player.id, [player.email_type, player.avg_phish_acc, player.avg_ham_acc]);
+                    if (player.disconnectedStage.step == 1) {
+                        node.say("averages", bot.player.id, [player.email_type, player.avg_phish_acc, player.avg_ham_acc]);
+                    };
                 };
 
                 //console.log(node.game.pl.id.getAllKeys());
@@ -412,6 +437,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
     // Phase 2 feedback
     stager.extendStep('phase 2 feedback', {
+        minPlayers: 1,
         init: function() {
             let prev_phase = node.game.getPreviousStep();
             let phase = node.game.getStepId(prev_phase);

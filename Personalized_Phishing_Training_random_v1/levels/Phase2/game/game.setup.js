@@ -39,7 +39,7 @@
         // ### promptOnleave
         // If TRUE, a popup window will ask users whether they want to
         // leave the page.
-        promptOnleave: !setup.debug
+        promptOnleave: false //!setup.debug
     };
 
     // Metadata.
