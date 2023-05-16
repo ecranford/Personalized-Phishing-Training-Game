@@ -122,7 +122,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                         bonus: player.winRaw*node.game.settings.EXCHANGE_RATE,
                         totalpay: (totalTime/60000)*0.10, //time in minutes * $0.10 per minute, no bonus
                         disconnected: player.disconnected == null ? 0 : player.disconnected,
-                        disconnectStage: player.disconnectedStage.stage+'.'+player.disconnectedStage.step+'.'+player.disconnectedStage.round
+                        disconnectStage: '1.'+player.disconnectedStage.stage+'.'+player.disconnectedStage.step+'.'+player.disconnectedStage.round
                     }];
                     // Save bonus info to main bonus.csv
                     if (fs.existsSync('./games_available/Personalized_Phishing_Training_random_v1/data/bonus.csv')) {
