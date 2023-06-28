@@ -23,7 +23,7 @@
 
     // ## verbosity
     // Changes the quantity of output to console in the browser and Node.JS
-     setup.verbosity = 0;
+     setup.verbosity = 0; //set to 100 for debug
 
     // ## debug
     // Changes the behavior of nodeGame in relation to errors in the browser

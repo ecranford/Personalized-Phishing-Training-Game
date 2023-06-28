@@ -162,131 +162,135 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
     //choose which email to present on each trial of training (Phase 2)
     stager.extendStep('phase 2', {
         init: function() {
-            let trial = node.game.getRound();
-            let phase = node.game.getCurrentStepObj();
-            console.log("------------------------");
-            console.log(phase.id[0].toUpperCase() + phase.id.substring(1));
-            console.log("Trial "+trial);
-            //for test phase, select 20% of players
-            let ids = node.game.pl.id.getAllKeys();
-            let bot_id = "1";
-            while (ids.length < 10) {
-                ids.unshift(bot_id);
-                bot_id++;
-              };
-            console.log("Players List: "+ids);
-            let num_players = Math.ceil(ids.length * 0.2); //change this as appropriate for game with 10 players (and dropouts)
-            let selected_ids = [];
-            // Randomly select n players without replacement
-            do {
-                selected_ids.unshift(ids.splice(Math.floor(Math.random() * ids.length), 1)[0]);
-            }
-            while (selected_ids.length < num_players);
-            console.log("Selected players: "+selected_ids);
-
-            let player_phish_accs = [];
-            let player_ham_accs = [];
-
-            //send average accuracies to bot
-            //set bot's choice based on average performance of all players...including bots
-            this.pl.each(function(p) {
-                let player = channel.registry.getClient(p.id);
-                //console.log(p.id+" data is:");
-                //console.table(player.data);
-                let total_phish_scores = player.data.filter(item => item.email_type === "PHISHING");
-                total_phish_scores = total_phish_scores.slice(-20); //take only last 20 emails
-                //console.log(p.id+" phish accuracies is: "+total_phish_scores);
-                let total_phish_score = 0;
-                let average_phish_acc;
-                if (total_phish_scores.length > 0) {
-                    for(let i = 0; i < total_phish_scores.length; i++) {
-                        total_phish_score += total_phish_scores[i].accuracy;
-                    }
-                    average_phish_acc = total_phish_score / total_phish_scores.length;
-                    player_phish_accs.push(average_phish_acc);
-                } else {
-                    average_phish_acc = null;
-                }
-                //console.log(p.id+" avg phish accuracy is: "+average_phish_acc);
-                
-                let total_ham_scores = player.data.filter(item => item.email_type === "HAM");
-                total_ham_scores = total_ham_scores.slice(-20); //take only last 20 emails
-                //console.log(p.id+" ham accuracies is: "+total_ham_scores);
-                let total_ham_score = 0;
-                let average_ham_acc;
-                if (total_ham_scores.length > 0) {
-                    for(let i = 0; i < total_ham_scores.length; i++) {
-                        total_ham_score += total_ham_scores[i].accuracy;
-                    }
-                    average_ham_acc = total_ham_score / total_ham_scores.length;
-                    player_ham_accs.push(average_ham_acc);
-                } else {
-                    average_ham_acc = null;
-                }
-                //console.log(p.id+" avg ham accuracy is: "+average_ham_acc);
-            });
-            //console.log("Phish accuracies is: "+player_phish_accs);
-            //console.log("Ham accuracies is: "+player_ham_accs);
-
-            if (player_phish_accs.length > 0) {
-                avg_phish_acc = player_phish_accs.reduce((a, b) => a + b) / player_phish_accs.length;
-            } else {
-                avg_phish_acc = 0.5;
-            };
-            if (player_ham_accs.length > 0) {
-                avg_ham_acc = player_ham_accs.reduce((a, b) => a + b) / player_ham_accs.length;
-            } else {
-                avg_ham_acc = 0.5;
-            };
-            console.log("Avg phish accuracy is: "+avg_phish_acc);
-            console.log("Avg ham accuracy is: "+avg_ham_acc);   
-
-            //send phase, trial, and email data to each participant
-            this.pl.each(function(p) {
-                let player = channel.registry.getClient(p.id);
-                //change this selection for CogModel and RMAB versions so that it requests and gets info from model.
-                let seen_emails_list = player.data.filter(item => item.email_id);
-                let seen_emails = [];
-                for (let i = 0; i < seen_emails_list.length; i++) {
-                    //console.log(scores[i].accuracy);
-                    seen_emails.push(seen_emails_list[i].email_id);
+            //moved everything to the cb function and added a 500 ms wait
+        },
+        cb: function () {    
+            node.timer.wait(500).exec(function () { 
+                let trial = node.game.getRound();
+                let phase = node.game.getCurrentStepObj();
+                console.log("------------------------");
+                console.log(phase.id[0].toUpperCase() + phase.id.substring(1));
+                console.log("Trial "+trial);
+                //for test phase, select 20% of players
+                let ids = node.game.pl.id.getAllKeys();
+                let bot_id = "1";
+                while (ids.length < 10) {
+                    ids.unshift(bot_id);
+                    bot_id++;
                 };
-                console.log(p.id+" Seen emails has duplicates: "+((new Set(seen_emails)).size !== seen_emails.length));
-                let email_num;
-                //for test phase, send phishing email to 20% of players
-                if (selected_ids.includes(p.id)) {
-                    do {
-                        email_num = Math.floor(Math.random() * 188) + 1;
+                console.log("Players List: "+ids);
+                let num_players = Math.ceil(ids.length * 0.2); //change this as appropriate for game with 10 players (and dropouts)
+                let selected_ids = [];
+                // Randomly select n players without replacement
+                do {
+                    selected_ids.unshift(ids.splice(Math.floor(Math.random() * ids.length), 1)[0]);
+                }
+                while (selected_ids.length < num_players);
+                console.log("Selected players: "+selected_ids);
+
+                let player_phish_accs = [];
+                let player_ham_accs = [];
+
+                //send average accuracies to bot
+                //set bot's choice based on average performance of all players...including bots
+                this.pl.each(function(p) {
+                    let player = channel.registry.getClient(p.id);
+                    //console.log(p.id+" data is:");
+                    //console.table(player.data);
+                    let total_phish_scores = player.data.filter(item => item.email_type === "PHISHING");
+                    total_phish_scores = total_phish_scores.slice(-20); //take only last 20 emails
+                    //console.log(p.id+" phish accuracies is: "+total_phish_scores);
+                    let total_phish_score = 0;
+                    let average_phish_acc;
+                    if (total_phish_scores.length > 0) {
+                        for(let i = 0; i < total_phish_scores.length; i++) {
+                            total_phish_score += total_phish_scores[i].accuracy;
+                        }
+                        average_phish_acc = total_phish_score / total_phish_scores.length;
+                        player_phish_accs.push(average_phish_acc);
+                    } else {
+                        average_phish_acc = null;
                     }
-                    while (seen_emails.includes(''+email_num));
+                    //console.log(p.id+" avg phish accuracy is: "+average_phish_acc);
                     
-                } else {
-                    do {
-                        email_num = Math.floor(Math.random() * 177) + 189;
+                    let total_ham_scores = player.data.filter(item => item.email_type === "HAM");
+                    total_ham_scores = total_ham_scores.slice(-20); //take only last 20 emails
+                    //console.log(p.id+" ham accuracies is: "+total_ham_scores);
+                    let total_ham_score = 0;
+                    let average_ham_acc;
+                    if (total_ham_scores.length > 0) {
+                        for(let i = 0; i < total_ham_scores.length; i++) {
+                            total_ham_score += total_ham_scores[i].accuracy;
+                        }
+                        average_ham_acc = total_ham_score / total_ham_scores.length;
+                        player_ham_accs.push(average_ham_acc);
+                    } else {
+                        average_ham_acc = null;
                     }
-                    while (seen_emails.includes(''+email_num));
-                };
+                    //console.log(p.id+" avg ham accuracy is: "+average_ham_acc);
+                });
+                //console.log("Phish accuracies is: "+player_phish_accs);
+                //console.log("Ham accuracies is: "+player_ham_accs);
 
-                node.say("phasedata", p.id, [phase.id[0].toUpperCase() + phase.id.substring(1), trial]);
-                var email = emails.filter(el => {return el['id'] === email_num.toString();});
-                console.log("Fetching email number "+email_num+" for "+p.id);
-                if (email_num.toString() !== email[0].id) {
-                    console.log("Error: wrong email retrieved from database for "+p.id);
-                }
-                //console.log("Verifying Email ID "+email[0].id+" for "+p.id);
-                p.email_id = email[0].id;
-                p.email_type = email[0].type;
-                p.avg_ham_acc = avg_ham_acc;
-                p.avg_phish_acc = avg_phish_acc;
-                node.say("email", p.id, email);                                    
-                node.say("averages", p.id, [p.email_type, avg_phish_acc, avg_ham_acc]);   
-                //console.log(p);
+                if (player_phish_accs.length > 0) {
+                    avg_phish_acc = player_phish_accs.reduce((a, b) => a + b) / player_phish_accs.length;
+                } else {
+                    avg_phish_acc = 0.5;
+                };
+                if (player_ham_accs.length > 0) {
+                    avg_ham_acc = player_ham_accs.reduce((a, b) => a + b) / player_ham_accs.length;
+                } else {
+                    avg_ham_acc = 0.5;
+                };
+                console.log("Avg phish accuracy is: "+avg_phish_acc);
+                console.log("Avg ham accuracy is: "+avg_ham_acc);   
+
+                //send phase, trial, and email data to each participant
+                this.pl.each(function(p) {
+                    let player = channel.registry.getClient(p.id);
+                    //change this selection for CogModel and RMAB versions so that it requests and gets info from model.
+                    let seen_emails_list = player.data.filter(item => item.email_id);
+                    let seen_emails = [];
+                    for (let i = 0; i < seen_emails_list.length; i++) {
+                        //console.log(scores[i].accuracy);
+                        seen_emails.push(seen_emails_list[i].email_id);
+                    };
+                    console.log(p.id+" Seen emails has duplicates: "+((new Set(seen_emails)).size !== seen_emails.length));
+                    let email_num;
+                    //for test phase, send phishing email to 20% of players
+                    if (selected_ids.includes(p.id)) {
+                        do {
+                            email_num = Math.floor(Math.random() * 188) + 1;
+                        }
+                        while (seen_emails.includes(''+email_num));
+                        
+                    } else {
+                        do {
+                            email_num = Math.floor(Math.random() * 177) + 189;
+                        }
+                        while (seen_emails.includes(''+email_num));
+                    };
+
+                    node.say("phasedata", p.id, [phase.id[0].toUpperCase() + phase.id.substring(1), trial]);
+                    var email = emails.filter(el => {return el['id'] === email_num.toString();});
+                    console.log("Fetching email number "+email_num+" for "+p.id);
+                    if (email_num.toString() !== email[0].id) {
+                        console.log("Error: wrong email retrieved from database for "+p.id);
+                    }
+                    //console.log("Verifying Email ID "+email[0].id+" for "+p.id);
+                    p.email_id = email[0].id;
+                    p.email_type = email[0].type;
+                    p.avg_ham_acc = avg_ham_acc;
+                    p.avg_phish_acc = avg_phish_acc;
+                    node.say("email", p.id, email);                                    
+                    node.say("averages", p.id, [p.email_type, avg_phish_acc, avg_ham_acc]);   
+                    //console.log(p);
+                });
             });
             
-        },
-        cb: function () {          
             node.on.done(function(msg) {
                 let data = msg.data;
+                //console.log(data);
 
                 let player = channel.registry.getClient(data.player);
 

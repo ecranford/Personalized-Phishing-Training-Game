@@ -131,80 +131,83 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
     stager.extendStep('phase 3', {
         init: function() {
-            let trial = node.game.getRound();
-            let phase = node.game.getCurrentStepObj();
-            console.log("------------------------");
-            console.log(phase.id[0].toUpperCase() + phase.id.substring(1));
-            console.log("Trial "+trial);
-            //choose which email to present on each trial of post-test (Phase 3)
-            this.pl.each(function(p) {
-                let player = channel.registry.getClient(p.id);
-                //change this selection for CogModel and RMAB versions so that it requests and gets info from model.
-                let seen_emails_list = player.data.filter(item => item.email_id);
-                let seen_emails = [];
-                for (let i = 0; i < seen_emails_list.length; i++) {
-                    //console.log(scores[i].accuracy);
-                    seen_emails.push(seen_emails_list[i].email_id);
-                };
-                console.log(p.id+" Seen emails has duplicates: "+((new Set(seen_emails)).size !== seen_emails.length));
-                let seen_email_types_list = player.data.filter(item => item.phase === "phase 3");
-                let seen_email_types = [];
-                for (let i = 0; i < seen_email_types_list.length; i++) {
-                    //console.log(scores[i].accuracy);
-                    seen_email_types.push(seen_email_types_list[i].email_type);
-                };
-                let num_phishing = seen_email_types.filter(x => x=="PHISHING").length;
-                console.log(p.id+" Number phishing: "+num_phishing);
-                let num_ham = seen_email_types.filter(x => x=="HAM").length;
-                console.log(p.id+" Number ham: "+num_ham);
-                let selected_email_type;
-                let email_num;
-                //for pre- and post-test phases, send random 10 phishing and 10 ham
-                if (num_phishing <= 9) {
-                    if (num_ham <= 9) {
-                        if (Math.floor(Math.random() * 2) == 0) {
-                            selected_email_type = "PHISHING";
-                            console.log("Both <= 9, sending phishing to "+p.id);
-                        } else {
-                            selected_email_type = "HAM";
-                            console.log("Both <= 9, sending ham to "+p.id);
-                        };
-                    } else {
-                        selected_email_type = "PHISHING";
-                        console.log("10 ham, sending phishing to "+p.id);
-                    };
-                  } else {
-                    selected_email_type = "HAM";
-                    console.log("10 phishing, sending ham to "+p.id);
-                };
-                if (selected_email_type == "PHISHING") {
-                    do {
-                        email_num = Math.floor(Math.random() * 188) + 1;
-                    }
-                    while (seen_emails.includes(''+email_num));
-                    
-                } else {
-                    do {
-                        email_num = Math.floor(Math.random() * 177) + 189;
-                    }
-                    while (seen_emails.includes(''+email_num));
-                };
-                console.log("Fetching email number "+email_num+" for "+p.id);
-
-                //send phase, trial, and email data to each participant
-                node.say("phasedata", p.id, [phase.id[0].toUpperCase() + phase.id.substring(1), trial]);
-                var email = emails.filter(el => {return el['id'] === email_num.toString();});
-                if (email_num.toString() !== email[0].id) {
-                    console.log("Error: wrong email retrieved from database for "+p.id);
-                }
-                //console.log("Verifying Email ID "+email[0].id+" for "+p.id);
-                p.email_id = email[0].id;
-                p.email_type = email[0].type;
-                node.say("email", p.id, email);
-            });
-            
+            //moved everything to the cb function and added a 500 ms wait
         },
         cb: function () {
+            node.timer.wait(500).exec(function () { 
+                let trial = node.game.getRound();
+                let phase = node.game.getCurrentStepObj();
+                console.log("------------------------");
+                console.log(phase.id[0].toUpperCase() + phase.id.substring(1));
+                console.log("Trial "+trial);
+                //choose which email to present on each trial of post-test (Phase 3)
+                this.pl.each(function(p) {
+                    let player = channel.registry.getClient(p.id);
+                    //change this selection for CogModel and RMAB versions so that it requests and gets info from model.
+                    let seen_emails_list = player.data.filter(item => item.email_id);
+                    let seen_emails = [];
+                    for (let i = 0; i < seen_emails_list.length; i++) {
+                        //console.log(scores[i].accuracy);
+                        seen_emails.push(seen_emails_list[i].email_id);
+                    };
+                    console.log(p.id+" Seen emails has duplicates: "+((new Set(seen_emails)).size !== seen_emails.length));
+                    let seen_email_types_list = player.data.filter(item => item.phase === "phase 3");
+                    let seen_email_types = [];
+                    for (let i = 0; i < seen_email_types_list.length; i++) {
+                        //console.log(scores[i].accuracy);
+                        seen_email_types.push(seen_email_types_list[i].email_type);
+                    };
+                    let num_phishing = seen_email_types.filter(x => x=="PHISHING").length;
+                    console.log(p.id+" Number phishing: "+num_phishing);
+                    let num_ham = seen_email_types.filter(x => x=="HAM").length;
+                    console.log(p.id+" Number ham: "+num_ham);
+                    let selected_email_type;
+                    let email_num;
+                    //for pre- and post-test phases, send random 10 phishing and 10 ham
+                    if (num_phishing <= 9) {
+                        if (num_ham <= 9) {
+                            if (Math.floor(Math.random() * 2) == 0) {
+                                selected_email_type = "PHISHING";
+                                console.log("Both <= 9, sending phishing to "+p.id);
+                            } else {
+                                selected_email_type = "HAM";
+                                console.log("Both <= 9, sending ham to "+p.id);
+                            };
+                        } else {
+                            selected_email_type = "PHISHING";
+                            console.log("10 ham, sending phishing to "+p.id);
+                        };
+                    } else {
+                        selected_email_type = "HAM";
+                        console.log("10 phishing, sending ham to "+p.id);
+                    };
+                    if (selected_email_type == "PHISHING") {
+                        do {
+                            email_num = Math.floor(Math.random() * 188) + 1;
+                        }
+                        while (seen_emails.includes(''+email_num));
+                        
+                    } else {
+                        do {
+                            email_num = Math.floor(Math.random() * 177) + 189;
+                        }
+                        while (seen_emails.includes(''+email_num));
+                    };
+                    console.log("Fetching email number "+email_num+" for "+p.id);
+
+                    //send phase, trial, and email data to each participant
+                    node.say("phasedata", p.id, [phase.id[0].toUpperCase() + phase.id.substring(1), trial]);
+                    var email = emails.filter(el => {return el['id'] === email_num.toString();});
+                    if (email_num.toString() !== email[0].id) {
+                        console.log("Error: wrong email retrieved from database for "+p.id);
+                    }
+                    //console.log("Verifying Email ID "+email[0].id+" for "+p.id);
+                    p.email_id = email[0].id;
+                    p.email_type = email[0].type;
+                    node.say("email", p.id, email);
+                });
+            });
+
             node.on.done(function(msg) {
                 let data = msg.data;
 

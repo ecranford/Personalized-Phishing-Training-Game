@@ -21,6 +21,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
         var header;
 
+        W.init({ waitScreen: true });
+
         // Setup page: header + frame.
         
         header = W.generateHeader();

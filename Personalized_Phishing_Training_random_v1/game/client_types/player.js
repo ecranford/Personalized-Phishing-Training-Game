@@ -28,6 +28,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
         var header;
 
+        W.init({ waitScreen: false });
+
         // Setup page: header + frame.
         
         header = W.generateHeader();
@@ -58,7 +60,8 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             node.game.backButton.hide();
         },
         cb: function() {
-            //nothing here yet
+            //Code to skip to end of level; comment out to not skip anything
+            //node.game.gotoStep('7'); 
         },
 
         // Make a widget step for preconsent.
