@@ -1,0 +1,14 @@
+{
+    "name": "Personalized_Phishing_Training_CogEV_v1",
+    "version": "0.0.1",
+    "description": "A multi-player phishing training simulator game",
+    "author": "Edward Cranford <cranford@cmu.edu>",
+    "license": "MIT/X11",
+    "homepage": "http://nodegame.org",
+    "dependencies": {
+        "csv-stringify": "^6.3.0"
+    },
+    "card": {
+        "name": "Phishing\nTraining\nSimulator\n(Cog)"
+    }
+}

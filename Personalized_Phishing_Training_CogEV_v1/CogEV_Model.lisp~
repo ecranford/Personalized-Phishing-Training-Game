@@ -1,0 +1,401 @@
+;;; Copyright (c) 2018 Carnegie Mellon University
+;;;
+;;; Permission is hereby granted, free of charge, to any person obtaining a copy of this
+;;; software and associated documentation files (the "Software"), to deal in the Software
+;;; without restriction, including without limitation the rights to use, copy, modify,
+;;; merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+;;; permit persons to whom the Software is furnished to do so, subject to the following
+;;; conditions:
+;;;
+;;; The above copyright notice and this permission notice shall be included in all copies
+;;; or substantial portions of the Software.
+;;;
+;;; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+;;; INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+;;; PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+;;; HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+;;; CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+;;; OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+#|
+Personalized Phishing Training selection algorithm -- Cog EV
+
+Drew Cranford
+Don Morrison
+Christian Lebiere
+
+;;; The model selects users to send phishing emails to by weighing the anticipated future
+;;; benefits of sending a phishing email, in terms of correctly classifying phishing emails, 
+;;; against the anticipated future costs, in terms of incorrectly classifying ham emails, 
+;;; to determine which users will most benefit from a phishing training intervention. The
+;;; input to the model is a history of users' classification decisions that include the
+;;; user-id, email-id, classification decision, and time of decision. The model gets the
+;;; email features from a database based on the email-id. Similarities between features
+;;; are computed using the UMBC semantic similarity tool, but which have been precomputed
+;;; and saved to a hash table for easy lookup. Output is a list of user IDs.
+
+4/17/2023 -- creation date
+
+v1.0 = Cog EV baseline method
+
+|#
+
+(in-package :common-lisp-user)
+
+;;Load similarity service
+;;;;DON'T THINK I NEED THIS IF SIMILARITIES ARE PRECOMPUTED AND SAVED IN *EmailSims*
+(load "similarity-service.lisp")
+(ss:load-semantic-textual-similarity-cache)
+
+;;Load packages
+;;; NOTE: need to remove packages that aren't used and add packages necessary for
+;;; communication with experiment
+(ql:quickload '(:alexandria
+		:cl-utilities
+		:cl-ppcre
+		:external-program
+		:vom
+		:unix-options
+		:cl-csv
+		:split-sequence
+		:usocket-server))
+
+(import '(alexandria:if-let alexandria:when-let cl-utilities:n-most-extreme))
+
+(vom:config t :debug)
+
+;;(defconstant +default-host+ "localhost" :test #'equal)
+(defconstant +default-port+ 9141)
+
+(defparameter +seed+ '(987654321 3)) ;;seed for creating executable
+
+(defparameter *EmailData* '())
+(setf *EmailData* '())
+(defparameter *EmailSims* '())
+(defparameter *user-history* '())
+(setf *user-history* '())
+(defparameter *user-list* '())
+(setf *user-list* '())
+(defparameter *user-data* '())
+(setf *user-data* '())
+;;(defparameter *pHam* 0.0)
+;;(defparameter *pPhishing* 0.0)
+(defparameter *email-list* '())
+(setf *email-list* '())
+
+;;;ADD this somewhere in beginning of start function to read in email similarities
+;;Read in Email Similarity data into a-list
+(cl-csv:do-csv (row (make-pathname :type "csv" :name "EmailSimilarityMatrix_sum") :skip-first-p t)
+  (let ((email-id (read-from-string (first row))))
+    (setf *EmailSims* (acons (read-from-string (first row))
+			     nil
+			     *EmailSims*))
+    (dotimes (i 365)
+      (setf (cdr (assoc email-id *EmailSims*)) (acons (1+ i)
+						      (read-from-string (nth (+ 1 i) row))
+						      (cdr (assoc email-id *EmailSims*)))))))
+
+;;functions to decompose url's and email addresses if desired (not used by default)
+(defun decompose-sender (s)
+  (nsubstitute-if #\Space #'(lambda (c) (member c '(#\_ #\- #\@ #\.))) s)
+  s)
+(defun decompose-link (s)
+  (nsubstitute-if #\Space #'(lambda (c) (member c '(#\% #\? #\= #\_ #\& #\- #\/ #\: #\@ #\.))) s)
+  s)
+
+(defun simplify-link (s)
+  (let ((result (if (ppcre:scan-to-strings "www.*" s)
+		    (subseq (ppcre:scan-to-strings "www..*" s) 4)
+		    (if (ppcre:scan-to-strings "://.*" s)
+			(subseq (ppcre:scan-to-strings "://.*" s) 3)
+			s))))
+    (decompose-link result)))
+
+(defun approx-act-r-noise (s)
+  "Approximates a sample from a normal distribution with mean zero and
+   the given s-value (/ (sqrt (* 3.0 variance)) 3.1416)."
+  ;; Need to test bound because of short-float lack of precision
+  (if (and (numberp s) (plusp s))
+      (let ((p (max 0.0001 (min (random 1.0) 0.9999))))
+        (* s (log (/ (- 1.0 p) p))))
+      (format t "Act-r-noise called with an invalid s ~S" s)))
+
+;;select-users will return a list of users to send phishing emails to (default: select randomly)
+;;CogSelect will select 20% of users
+
+(defparameter +blc+ 5.0)                ;;base-level activation constant
+(defparameter +bll+ 0.5)                ;;base-level learning (decay parameter)
+(defparameter +mp+ 2.0)                 ;;mismatch penalty parameter for partial matching
+(defparameter +ans+ 0.25)               ;;transient noise parameter
+(defparameter +tmp+ (* (sqrt 2) +ans+)) ;;temperature parameter
+
+#|
+activation equation = bla + pm + noise
+bla = blc + ln(sum(t^-bll))
+partial matching = sum(mp*(sim(k,i)))
+noise = (act-r-noise ans)
+therefore a = blc + ln(sum(t^-bll)) + sum-of-all-slots-k(mp*(sim(k,i))) + (act-r-noise ans)
+
+Pi = exp(Ai/(* (sqrt 2) ans)) / sum-of-all-chunks-j(exp(Aj/(* (sqrt 2) ans)))
+|#
+
+(defun select-users ()
+  (let ((user-ids '())
+	(user-data '()) ;;a-list to store ((user-id . (piphish . piphish) (piham . piham)))
+	(current-time (+ 0.5 (mp-time)))) ;;current-time is 0.5 seconds after last trial to simulate time before decision is made
+    (dolist (user *user-list*)  
+      ;;determine current probability to classify a phishing email correctly
+      (let ((instances '()) ;;a-list to store ((email-id . (classification . class) (activation . ai) (prob-retrieval . pi)))
+	    (instance-list (copy-seq (cdr (assoc user *user-history*))))
+	    )
+	(dolist (instance instance-list)
+	  (let* ((email-id (car instance))   ;;email-id
+		 (class (cadr instance))     ;;classification
+		 (stime (cddr instance))     ;;time of storage
+		 (tj (- current-time stime)) ;;time since last presentation
+		 )
+	    ;;compute activation of each email using partial matching
+	    (setf instances (acons email-id
+				   (pairlis '(classification activation)
+					    `(,class
+					      ,(+ +blc+
+						  (log (expt tj (- +bll+)))
+						  (* +mp+
+						     ;;if 0 phishing emails then similarity is maximally different
+						     (cond ((= (count-if #'(lambda (x) (equal (cadr x) 'phishing)) instance-list) 0)
+							    -5.0)
+							   ;;if 1 phishing email then similarity for phishing email is to average phishing email
+							   ((and (= (count-if #'(lambda (x) (equal (cadr x) 'phishing)) instance-list) 1)
+								 (equal class 'phishing))
+							    (cdr (assoc 364 (cdr (assoc email-id *EmailSims*)))))
+							   (t (loop for inst in instance-list
+								    ;;get average simlarity to phishing emails excluding self
+								    when (and (equal (cadr inst) 'phishing) (not (equal email-id (car inst)))) 
+								      count inst into total-num
+								      and sum (cdr (assoc (car inst) (cdr (assoc email-id *EmailSims*)))) into total-sum
+								    finally (return (/ total-sum total-num))))))
+						  ;;(approx-act-r-noise +ans+)
+						  )))
+				   instances)) ;;compute activation
+	    ))
+	;;compute retrieval probability of each email (boltzmann equation)
+	;;first collect activations into a-list and sum them
+	(let ((boltzmann-denom (loop for instance in (copy-seq instances)
+				  sum (exp (/ (cdr (assoc 'activation (cdr instance))) +tmp+)))))
+	  ;;then compute boltzmann equation on each instance and add to instances list
+	  (dolist (inst (copy-seq instances))
+	    (setf (cdr (assoc (car inst) instances)) (acons 'prob-retrieval
+							    (/ (exp (/ (cdr (assoc 'activation (cdr inst))) +tmp+))
+							       boltzmann-denom) ;;compute prob-retrieval
+							    (cdr (assoc (car inst) instances))))
+	    ))
+	;;compute pi phishing and pi ham and add to user-data
+	(setf user-data (acons user
+			       (pairlis '(pcorrect-phish-t pincorrect-phish-t)
+					`(,(loop for instance in (copy-seq instances)
+						 when (equal (cdr (assoc 'classification (cdr instance))) 'phishing) ;;pi phishing
+						   sum (cdr (assoc 'prob-retrieval (cdr instance))))
+					  ,(loop for instance in (copy-seq instances)
+						 when (equal (cdr (assoc 'classification (cdr instance))) 'ham) ;;pi ham
+						   sum (cdr (assoc 'prob-retrieval (cdr instance))))))
+			       user-data))))
+
+    (dolist (user *user-list*)  
+      ;;determine current probability to classify a ham email correctly
+      (let ((instances '()) ;;a-list to store ((email-id . (classification . class) (activation . ai) (prob-retrieval . pi)))
+	    (instance-list (copy-seq (cdr (assoc user *user-history*))))
+	    )
+	(dolist (instance instance-list)
+	  (let* ((email-id (car instance))   ;;email-id
+		 (class (cadr instance))     ;;classification
+		 (stime (cddr instance))     ;;time of storage
+		 (tj (- current-time stime)) ;;time since last presentation
+		 )
+	    ;;compute activation of each email ignoring partial matching
+	    (setf instances (acons email-id
+				   (pairlis '(classification activation)
+					    `(,class
+					      ,(+ +blc+
+						  (log (expt tj (- +bll+)))
+						  (* +mp+
+						     ;;if 0 ham emails then similarity is maximally different
+						     (cond ((= (count-if #'(lambda (x) (equal (cadr x) 'ham)) instance-list) 0)
+							    -5.0)
+							   ;;if 1 ham email then similarity for ham email is to average ham email
+							   ((and (= (count-if #'(lambda (x) (equal (cadr x) 'ham)) instance-list) 1)
+								 (equal class 'phishing))
+							    (cdr (assoc 365 (cdr (assoc email-id *EmailSims*)))))
+							   (t (loop for inst in instance-list
+								    ;;get average simlarity to ham emails excluding self
+								    when (and (equal (cadr inst) 'ham) (not (equal email-id (car inst)))) 
+								      count inst into total-num
+								      and sum (cdr (assoc (car inst) (cdr (assoc email-id *EmailSims*)))) into total-sum
+								    finally (return (/ total-sum total-num))))))
+						  ;;(approx-act-r-noise +ans+)
+						  )))
+				   instances)) ;;compute activation
+	    ))
+	;;compute retrieval probability of each email (boltzmann equation)
+	;;first collect activations into a-list and sum them
+	(let ((boltzmann-denom (loop for instance in (copy-seq instances)
+				  sum (exp (/ (cdr (assoc 'activation (cdr instance))) +tmp+)))))
+	  ;;then compute boltzmann equation on each instance and add to instances list
+	  (dolist (inst (copy-seq instances))
+	    (setf (cdr (assoc (car inst) instances)) (acons 'prob-retrieval
+							    (/ (exp (/ (cdr (assoc 'activation (cdr inst))) +tmp+))
+							       boltzmann-denom) ;;compute prob-retrieval
+							    (cdr (assoc (car inst) instances))))
+	    ))
+	;;compute pi phishing and pi ham and add to user-data
+        ;;compute pi phishing|phishing and pi ham|phishing and add to user-data
+	(setf (cdr (assoc user user-data)) (pairlis '(pincorrect-ham-t pcorrect-ham-t)
+						    `(,(loop for instance in (copy-seq instances)
+							     when (equal (cdr (assoc 'classification (cdr instance))) 'phishing) ;;pi phishing|phishing
+							       sum (cdr (assoc 'prob-retrieval (cdr instance))))
+						      ,(loop for instance in (copy-seq instances)
+							     when (equal (cdr (assoc 'classification (cdr instance))) 'ham) ;;pi ham|phishing
+							       sum (cdr (assoc 'prob-retrieval (cdr instance)))))
+						    (cdr (assoc user user-data))))))
+
+    ;;determine impact of sending phishing email on classification of phishing emails
+    (dolist (user *user-list*)  
+      (let ((instances '()) ;;a-list to store ((email-id . (classification . class) (activation . ai) (prob-retrieval . pi)))
+	    (instance-list (copy-seq (cdr (assoc user *user-history*))))
+	    )
+	;;add phishing instance to sequence with stime =current-time where classification is always 'PHISHING
+	(setf instance-list (acons 364 (cons 'PHISHING current-time) instance-list))
+	(dolist (instance instance-list)
+	  (let* ((email-id (car instance))   ;;email-id
+		 (class (cadr instance))     ;;classification
+		 (stime (cddr instance))     ;;time of storage
+		 (tj (- (+ 30.5 current-time) stime)) ;;time since last presentation where current-time is +30.5 seconds
+		 )
+	    ;;compute activation of each email ignoring partial matching
+	    (setf instances (acons email-id
+				   (pairlis '(classification activation)
+					    `(,class
+					      ,(+ +blc+
+						  (log (expt tj (- +bll+)))
+						  (* +mp+
+						     ;;if 0 phishing emails then similarity is maximally different
+						     (cond ((= (count-if #'(lambda (x) (equal (cadr x) 'phishing)) instance-list) 0)
+							    -5.0)
+							   ;;if 1 phishing email then similarity for phishing email is to average phishing email
+							   ((and (= (count-if #'(lambda (x) (equal (cadr x) 'phishing)) instance-list) 1)
+								 (equal class 'phishing))
+							    (cdr (assoc 364 (cdr (assoc email-id *EmailSims*)))))
+							   (t (loop for inst in instance-list
+								    ;;get average simlarity to phishing emails excluding self
+								    when (and (equal (cadr inst) 'phishing) (not (equal email-id (car inst)))) 
+								      count inst into total-num
+								      and sum (cdr (assoc (car inst) (cdr (assoc email-id *EmailSims*)))) into total-sum
+								    finally (return (/ total-sum total-num))))))
+						  ;;(approx-act-r-noise +ans+)
+						  )))
+				   instances)) ;;compute activation
+	    ))
+	;;compute retrieval probability of each email (boltzmann equation)
+	;;first collect activations into a-list and sum them
+	(let ((boltzmann-denom (loop for instance in (copy-seq instances)
+				  sum (exp (/ (cdr (assoc 'activation (cdr instance))) +tmp+)))))
+	  ;;then compute boltzmann equation on each instance and add to instances list
+	  (dolist (inst (copy-seq instances))
+	    (setf (cdr (assoc (car inst) instances)) (acons 'prob-retrieval
+							    (/ (exp (/ (cdr (assoc 'activation (cdr inst))) +tmp+))
+							       boltzmann-denom) ;;compute prob-retrieval
+							    (cdr (assoc (car inst) instances))))
+	    ))
+	;;compute pi phishing|phishing and pi ham|phishing and add to user-data
+	(setf (cdr (assoc user user-data)) (pairlis '(pcorrect-phish-phish-t1 pincorrect-phish-phish-t1)
+						    `(,(loop for instance in (copy-seq instances)
+							     when (equal (cdr (assoc 'classification (cdr instance))) 'phishing) ;;pi phishing|phishing
+							       sum (cdr (assoc 'prob-retrieval (cdr instance))))
+						      ,(loop for instance in (copy-seq instances)
+							     when (equal (cdr (assoc 'classification (cdr instance))) 'ham) ;;pi ham|phishing
+							       sum (cdr (assoc 'prob-retrieval (cdr instance)))))
+						    (cdr (assoc user user-data))))))
+
+    ;;determine impact of sending phishing email on classification of ham emails
+    (dolist (user *user-list*)  
+      (let ((instances '()) ;;a-list to store ((email-id . (classification . class) (activation . ai) (prob-retrieval . pi)))
+	    (instance-list (copy-seq (cdr (assoc user *user-history*))))
+	    )
+	;;add phishing instance to sequence with stime =current-time where classification is always 'PHISHING
+	(setf instance-list (acons 364 (cons 'PHISHING current-time) instance-list))
+	(dolist (instance instance-list)
+	  (let* ((email-id (car instance))   ;;email-id
+		 (class (cadr instance))     ;;classification
+		 (stime (cddr instance))     ;;time of storage
+		 (tj (- (+ 30.5 current-time) stime)) ;;time since last presentation where current-time is +30.5 seconds
+		 )
+	    ;;compute activation of each email ignoring partial matching
+	    (setf instances (acons email-id
+				   (pairlis '(classification activation)
+					    `(,class
+					      ,(+ +blc+
+						  (log (expt tj (- +bll+)))
+						  (* +mp+
+						     ;;if 0 ham emails then similarity is maximally different
+						     (cond ((= (count-if #'(lambda (x) (equal (cadr x) 'ham)) instance-list) 0)
+							    -5.0)
+							   ;;if 1 ham email then similarity for ham email is to average ham email
+							   ((and (= (count-if #'(lambda (x) (equal (cadr x) 'ham)) instance-list) 1)
+								 (equal class 'phishing))
+							    (cdr (assoc 365 (cdr (assoc email-id *EmailSims*)))))
+							   (t (loop for inst in instance-list
+								    ;;get average simlarity to ham emails excluding self
+								    when (and (equal (cadr inst) 'ham) (not (equal email-id (car inst)))) 
+								      count inst into total-num
+								      and sum (cdr (assoc (car inst) (cdr (assoc email-id *EmailSims*)))) into total-sum
+								    finally (return (/ total-sum total-num))))))
+						  ;;(approx-act-r-noise +ans+)
+						  )))
+				   instances)) ;;compute activation
+	    ))
+	;;compute retrieval probability of each email (boltzmann equation)
+	;;first collect activations into a-list and sum them
+	(let ((boltzmann-denom (loop for instance in (copy-seq instances)
+				  sum (exp (/ (cdr (assoc 'activation (cdr instance))) +tmp+)))))
+	  ;;then compute boltzmann equation on each instance and add to instances list
+	  (dolist (inst (copy-seq instances))
+	    (setf (cdr (assoc (car inst) instances)) (acons 'prob-retrieval
+							    (/ (exp (/ (cdr (assoc 'activation (cdr inst))) +tmp+))
+							       boltzmann-denom) ;;compute prob-retrieval
+							    (cdr (assoc (car inst) instances))))
+	    ))
+	;;compute pi phishing|phishing and pi ham|phishing and add to user-data
+	(setf (cdr (assoc user user-data)) (pairlis '(pincorrect-ham-phish-t1 pcorrect-ham-phish-t1)
+						    `(,(loop for instance in (copy-seq instances)
+							     when (equal (cdr (assoc 'classification (cdr instance))) 'phishing) ;;pi phishing|phishing
+							       sum (cdr (assoc 'prob-retrieval (cdr instance))))
+						      ,(loop for instance in (copy-seq instances)
+							     when (equal (cdr (assoc 'classification (cdr instance))) 'ham) ;;pi ham|phishing
+							       sum (cdr (assoc 'prob-retrieval (cdr instance)))))
+						    (cdr (assoc user user-data))))))
+
+    
+    ;;select users to maximize probability of correct classifications
+    ;;p(correct|phishing)='piphish-phish and p(correct|ham)='piham-ham
+    ;;compute EVphishing and select users with greatest EVphishing
+    ;;EVphishing=improvement in classifying phishing
+    ;;EVphishing=(piphish-phish - piphish) - (piham - piham-phish)
+    (dolist (user *user-list*)
+      (let* ((ev-phish (- (- (cdr (assoc 'pcorrect-phish-phish-t1 (cdr (assoc user user-data))))    ;;compute EVphish
+			     (cdr (assoc 'pcorrect-phish-t (cdr (assoc user user-data)))))
+			  (- (cdr (assoc 'pcorrect-ham-t (cdr (assoc user user-data))))
+			     (cdr (assoc 'pcorrect-ham-phish-t1 (cdr (assoc user user-data))))))))
+	(setf (cdr (assoc user user-data)) (acons 'EV-PHISH
+						  ev-phish
+						  (cdr (assoc user user-data))))))
+    
+    (setf *user-data* user-data)
+    ;;select set of users with highest EVdiff values
+    (setf user-ids (mapcar #'car (n-most-extreme 200 user-data #'> :key #'(lambda (x) (cdr (assoc 'EV-PHISH (cdr x)))))))
+
+    user-ids)
+  )
+
+
+;;;COMMUNICATION FUNCTIONS HERE
+
+

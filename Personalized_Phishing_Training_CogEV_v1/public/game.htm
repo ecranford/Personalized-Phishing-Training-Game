@@ -1,0 +1,62 @@
+<!doctype html>
+<title>Game</title>
+<link rel="stylesheet" href="/lib/bootstrap/bootstrap.min.css" />
+<link rel="stylesheet" href="/stylesheets/nodegame.css" />
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  div.ex1 {
+    background-color: #FFFFFF;
+    width: 100%;
+    height: 450px;
+    overflow: scroll;
+    padding: 15px;
+    font-size: 16px;
+  }
+  div.ex2 {
+    background-color: #FFFFFF;
+    width: 100%;
+    height: 450px;
+    padding: 15px;
+    font-size: 16px;
+  }
+  datalist {
+  display: flex;
+  justify-content: space-between;
+  color: #333333;
+  width: 100%;
+}
+  </style>
+
+  
+
+<body>
+  <div id="container">
+    <h2><b><span id="phase"></span>&nbsp;&nbsp;Trial <span id="trial"></span></b></h2>
+    <table align ="center">
+      <tr>
+          <td align="center" width="68%">
+              <div align="justify" class="ex1">
+                  <b>From: </b> <span id="source"></span>
+                  <br><br>
+                  <b>Subject: </b> <span id="subject"></span>
+                  <br><br>
+                  <span id="body"></span>
+              </div>
+          </td>
+          <td>
+            <div id="classify" class="ex2">
+              <!--  <br>
+              <datalist id="tickmarks" style="font-size: 14px">
+                <option value="50" label="50"></option>            
+                <option value="100" label="100"></option>
+              </datalist>
+              <datalist id="tickmarks" style="font-size: 12px">
+                <option value="50" label="Not Confident at All"></option>
+                <option value="100" label="Fully Confident"></option>
+              </datalist> -->
+            </div>
+          </td>
+      </tr>
+  </table>
+  </div>
+</body>
