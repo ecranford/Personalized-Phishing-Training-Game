@@ -48,7 +48,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
     stager.extendStep('phase 2', {
         frame: 'game.htm',
         init: function() {
-            //node.game.visualTimer.hide();
+            //nothing here yet
         },
         donebutton: {
             text: 'Next'

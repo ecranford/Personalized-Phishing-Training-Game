@@ -20,13 +20,15 @@ var fs = require('fs');
 const net = require('net');
 var port = 9142;
 var host = '127.0.0.1'; //make sure this is correct..should be, it is what was used for adaptive study
-var socket = new net.Socket();
 
 module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
     let node = gameRoom.node;
     let channel = gameRoom.channel;
     let memory = node.game.memory;
+
+    var socket = new net.Socket();
+
     //Load database of emails
     var emails = require("../../../../emails.json");
     //console.log(emails);
@@ -62,7 +64,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 //player data will save when bot finishes, but...
                 //also need to compute current bonus whenever a player disconnects...but probably will just pay them base payment?
                 //Saves bonus file, and notifies players.
-                gameRoom.computeBonus({say: false, amt: true, addDisconnected: true, append: true, clients: [player.id]});
+                gameRoom.computeBonus({say: false, amt: true, addDisconnected: true, append: true, clients: [player.id], backup: false});
                 // Save times of all stages in case need to figure out how much base pay to pay them
                 memory.select('player', '=', player.id).save(player.id+'_times.csv', {
                     header: [
@@ -166,21 +168,32 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             //moved everything to the cb function and added a 500 ms wait
         },
         cb: function () {   
+            let ids = node.game.pl.id.getAllKeys();
+            //console.log(typeof ids);
+            node.remoteCommand('pause', ids,"Fetching email...");
+
             node.timer.wait(500).exec(function () {
+                //if (node.game.isPaused()) {
+                //    console.log("Game is paused");
+                //} else {
+                //    console.log("Game is NOT paused");
+                //};
+
                 let trial = node.game.getRound();
                 let phase = node.game.getCurrentStepObj();
                 console.log("------------------------");
                 console.log(phase.id[0].toUpperCase() + phase.id.substring(1));
                 console.log("Trial "+trial);
                 //for test phase, select 20% of players
-                let ids = node.game.pl.id.getAllKeys();
+                
                 let bot_id = "1";
                 while (ids.length < 10) {
                     ids.unshift(bot_id);
                     bot_id++;
                 };
+                //let num_players = Math.ceil(ids.length * 0.2); //change this as appropriate for game with 10 players (and dropouts)
+
                 console.log("Players List: "+ids);
-                let num_players = Math.ceil(ids.length * 0.2); //change this as appropriate for game with 10 players (and dropouts)
                 let selected_ids = [];
                 // send data to cog model and get back ids to send email to
                 //collect player_data into json object
@@ -189,160 +202,161 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     let player = channel.registry.getClient(p.id);
                     player_data.player_data.push({['u'+p.id]: player.data});
                 });
-                console.log(player_data);
+                //console.log(player_data);
                 let msg = JSON.stringify(player_data);
                 //console.log(msg);
                 //send player_data
-                socket.connect(port, host); //make connection
-                socket.on('connect', function() {
+                socket.connect(port, host, function() {
                     console.log('[+] Connected.');
                     //on conection send message
-                    socket.write(msg);
-                });
-
+                    socket.write(msg+'\r\n');
+                }); //make connection
+                
                 //get response
-                socket.on('data', function(message) {
-                    let flag_raised = false;
-
-                    switch(message){
-                        case message !== "":
-                            selected_ids = JSON.parse(message);
-                            console.log('The result is: '+selected_ids);
-                            flag_raised = true;
-                            break;
-                        default:
-                            //do nothing.
-                            break;
-                    }
+                socket.once('data', function(message) {
+                    node.remoteCommand('resume', ids);
+                    selected_ids = JSON.parse(message.toString("utf-8"));
+                    //console.log('The result is: '+selected_ids);
+                    //console.log(typeof selected_ids);
+                    console.log("[+] Selected players: "+selected_ids);
+                    //console.log(typeof selected_ids[0]);
+                    //console.log(typeof selected_ids[1]);
                     
-                    if (flag_raised) {
-                        // destroy socket 
-                        socket.destroy();
-                        // Randomly select n players without replacement
-                        console.log(typeof selected_ids);
-                        console.log("Selected players: "+selected_ids);
+                    // destroy socket 
+                    socket.destroy();
+                    console.log("[-] Connection Closed");
+                    
+                    let player_phish_accs = [];
+                    let player_ham_accs = [];
 
-                        let player_phish_accs = [];
-                        let player_ham_accs = [];
-
-                        //send average accuracies to bot
-                        //set bot's choice based on average performance of all players...including bots
-                        this.pl.each(function(p) {
-                            let player = channel.registry.getClient(p.id);
-                            //console.log(p.id+" data is:");
-                            //console.table(player.data);
-                            let total_phish_scores = player.data.filter(item => item.email_type === "PHISHING");
-                            total_phish_scores = total_phish_scores.slice(-20); //take only last 20 emails
-                            //console.log(p.id+" phish accuracies is: "+total_phish_scores);
-                            let total_phish_score = 0;
-                            let average_phish_acc;
-                            if (total_phish_scores.length > 0) {
-                                for(let i = 0; i < total_phish_scores.length; i++) {
-                                    total_phish_score += total_phish_scores[i].accuracy;
-                                }
-                                average_phish_acc = total_phish_score / total_phish_scores.length;
-                                player_phish_accs.push(average_phish_acc);
-                            } else {
-                                average_phish_acc = null;
+                    //send average accuracies to bot
+                    //set bot's choice based on average performance of all players...including bots
+                    node.game.pl.each(function(p) {
+                        let player = channel.registry.getClient(p.id);
+                        //console.log(p.id+" data is:");
+                        //console.table(player.data);
+                        let total_phish_scores = player.data.filter(item => item.email_type === "PHISHING");
+                        total_phish_scores = total_phish_scores.slice(-20); //take only last 20 emails
+                        //console.log(p.id+" phish accuracies is: "+total_phish_scores);
+                        let total_phish_score = 0;
+                        let average_phish_acc;
+                        if (total_phish_scores.length > 0) {
+                            for(let i = 0; i < total_phish_scores.length; i++) {
+                                total_phish_score += total_phish_scores[i].accuracy;
                             }
-                            //console.log(p.id+" avg phish accuracy is: "+average_phish_acc);
-                            
-                            let total_ham_scores = player.data.filter(item => item.email_type === "HAM");
-                            total_ham_scores = total_ham_scores.slice(-20); //take only last 20 emails
-                            //console.log(p.id+" ham accuracies is: "+total_ham_scores);
-                            let total_ham_score = 0;
-                            let average_ham_acc;
-                            if (total_ham_scores.length > 0) {
-                                for(let i = 0; i < total_ham_scores.length; i++) {
-                                    total_ham_score += total_ham_scores[i].accuracy;
-                                }
-                                average_ham_acc = total_ham_score / total_ham_scores.length;
-                                player_ham_accs.push(average_ham_acc);
-                            } else {
-                                average_ham_acc = null;
-                            }
-                            //console.log(p.id+" avg ham accuracy is: "+average_ham_acc);
-                        });
-                        //console.log("Phish accuracies is: "+player_phish_accs);
-                        //console.log("Ham accuracies is: "+player_ham_accs);
-
-                        if (player_phish_accs.length > 0) {
-                            avg_phish_acc = player_phish_accs.reduce((a, b) => a + b) / player_phish_accs.length;
+                            average_phish_acc = total_phish_score / total_phish_scores.length;
+                            player_phish_accs.push(average_phish_acc);
                         } else {
-                            avg_phish_acc = 0.5;
-                        };
-                        if (player_ham_accs.length > 0) {
-                            avg_ham_acc = player_ham_accs.reduce((a, b) => a + b) / player_ham_accs.length;
-                        } else {
-                            avg_ham_acc = 0.5;
-                        };
-                        console.log("Avg phish accuracy is: "+avg_phish_acc);
-                        console.log("Avg ham accuracy is: "+avg_ham_acc);   
-
-                        //send phase, trial, and email data to each participant
-                        this.pl.each(function(p) {
-                            let player = channel.registry.getClient(p.id);
-                            //change this selection for CogModel and RMAB versions so that it requests and gets info from model.
-                            let seen_emails_list = player.data.filter(item => item.email_id);
-                            let seen_emails = [];
-                            for (let i = 0; i < seen_emails_list.length; i++) {
-                                //console.log(scores[i].accuracy);
-                                seen_emails.push(seen_emails_list[i].email_id);
-                            };
-                            console.log(p.id+" Seen emails has duplicates: "+((new Set(seen_emails)).size !== seen_emails.length));
-                            let email_num;
-                            //for test phase, send phishing email to 20% of players
-                            if (selected_ids.includes(p.id)) {
-                                do {
-                                    email_num = Math.floor(Math.random() * 188) + 1;
-                                }
-                                while (seen_emails.includes(''+email_num));
-                                
-                            } else {
-                                do {
-                                    email_num = Math.floor(Math.random() * 177) + 189;
-                                }
-                                while (seen_emails.includes(''+email_num));
-                            };
-
-                            node.say("phasedata", p.id, [phase.id[0].toUpperCase() + phase.id.substring(1), trial]);
-                            var email = emails.filter(el => {return el['id'] === email_num.toString();});
-                            console.log("Fetching email number "+email_num+" for "+p.id);
-                            if (email_num.toString() !== email[0].id) {
-                                console.log("Error: wrong email retrieved from database for "+p.id);
-                            }
-                            //console.log("Verifying Email ID "+email[0].id+" for "+p.id);
-                            p.email_id = email[0].id;
-                            p.email_type = email[0].type;
-                            p.avg_ham_acc = avg_ham_acc;
-                            p.avg_phish_acc = avg_phish_acc;
-                            node.say("email", p.id, email);                                    
-                            node.say("averages", p.id, [p.email_type, avg_phish_acc, avg_ham_acc]);   
-                            //console.log(p);
+                            average_phish_acc = null;
+                        }
+                        //console.log(p.id+" avg phish accuracy is: "+average_phish_acc);
                         
-                        });
-                    }
+                        let total_ham_scores = player.data.filter(item => item.email_type === "HAM");
+                        total_ham_scores = total_ham_scores.slice(-20); //take only last 20 emails
+                        //console.log(p.id+" ham accuracies is: "+total_ham_scores);
+                        let total_ham_score = 0;
+                        let average_ham_acc;
+                        if (total_ham_scores.length > 0) {
+                            for(let i = 0; i < total_ham_scores.length; i++) {
+                                total_ham_score += total_ham_scores[i].accuracy;
+                            }
+                            average_ham_acc = total_ham_score / total_ham_scores.length;
+                            player_ham_accs.push(average_ham_acc);
+                        } else {
+                            average_ham_acc = null;
+                        }
+                        //console.log(p.id+" avg ham accuracy is: "+average_ham_acc);
+                    });
+                    //console.log("Phish accuracies is: "+player_phish_accs);
+                    //console.log("Ham accuracies is: "+player_ham_accs);
+
+                    if (player_phish_accs.length > 0) {
+                        avg_phish_acc = player_phish_accs.reduce((a, b) => a + b) / player_phish_accs.length;
+                    } else {
+                        avg_phish_acc = 0.5;
+                    };
+                    if (player_ham_accs.length > 0) {
+                        avg_ham_acc = player_ham_accs.reduce((a, b) => a + b) / player_ham_accs.length;
+                    } else {
+                        avg_ham_acc = 0.5;
+                    };
+                    console.log("Avg phish accuracy is: "+avg_phish_acc);
+                    console.log("Avg ham accuracy is: "+avg_ham_acc);   
+
+                    //send phase, trial, and email data to each participant
+                    node.game.pl.each(function(p) {
+                        //console.log(typeof p.id);
+                        let player = channel.registry.getClient(p.id);
+                        //change this selection for CogModel and RMAB versions so that it requests and gets info from model.
+                        let seen_emails_list = player.data.filter(item => item.email_id);
+                        let seen_emails = [];
+                        for (let i = 0; i < seen_emails_list.length; i++) {
+                            //console.log(scores[i].accuracy);
+                            seen_emails.push(seen_emails_list[i].email_id);
+                        };
+                        //console.log(p.id+" Seen emails has duplicates: "+((new Set(seen_emails)).size !== seen_emails.length));
+                        if ((new Set(seen_emails)).size !== seen_emails.length) {
+                            console.log(p.id+" Seen emails has duplicates!");
+                        };
+                        
+                        let email_num;
+                        //for test phase, send phishing email to 20% of players
+                        if (selected_ids.includes(p.id)) {
+                            do {
+                                email_num = Math.floor(Math.random() * 188) + 1;
+                            }
+                            while (seen_emails.includes(''+email_num));
+                            
+                        } else {
+                            do {
+                                email_num = Math.floor(Math.random() * 177) + 189;
+                            }
+                            while (seen_emails.includes(''+email_num));
+                        };
+
+                        node.say("phasedata", p.id, [phase.id[0].toUpperCase() + phase.id.substring(1), trial]);
+                        var email = emails.filter(el => {return el['id'] === email_num.toString();});
+                        console.log("Fetching email number "+email_num+" for "+p.id);
+                        if (email_num.toString() !== email[0].id) {
+                            console.log("Error: wrong email retrieved from database for "+p.id);
+                        }
+                        //console.log("Verifying Email ID "+email[0].id+" for "+p.id);
+                        p.email_id = email[0].id;
+                        p.email_type = email[0].type;
+                        p.avg_ham_acc = avg_ham_acc;
+                        p.avg_phish_acc = avg_phish_acc;
+                        node.say("email", p.id, email);                                    
+                        node.say("averages", p.id, [p.email_type, avg_phish_acc, avg_ham_acc]);   
+                        //console.log(p);
+                    });
                 });
-
-                
-                //do I need to close the connection?
-                //socket.end();
-
-                
             });
 
             node.on.done(function(msg) {
                 let data = msg.data;
+                //console.log(data);
 
                 let player = channel.registry.getClient(data.player);
-
-                let acc;
-                let choice = data.forms.classification.choice;
                 
                 let email_id = this.pl.get(data.player).email_id;
                 let email_type = this.pl.get(data.player).email_type;
                 let classification;
-                let confidence_val = data.forms.confidence.value;
+                let acc;
+                let choice;
+                let confidence_val;
+                let class_time;
+                let conf_time;
+                if (data.forms === undefined) {
+                    choice = 1;
+                    confidence_val = 50;
+                    class_time = 30000;
+                    conf_time = 30000;
+                } else {
+                    choice = data.forms.classification.choice;
+                    confidence_val = data.forms.confidence.value;
+                    class_time = data.forms.classification.time;
+                    conf_time = data.forms.confidence.time;
+                };
                 //algorithm for 50-100 scale
                 //((0.01*data.forms.confidence.value)*50)+50;
 
@@ -359,6 +373,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                         acc = 0.0;
                         classification = 'HAM';
                 };
+                console.log(data.player+" Email Type: "+email_type);
                 console.log(data.player+" Classification: "+choice+" "+classification);
                 console.log(data.player+" Confidence: "+confidence_val);
                 console.log(data.player+" Accuracy: "+acc);
@@ -385,9 +400,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     email_type: email_type,
                     class_val: choice,
                     classification: classification,
-                    class_time: data.forms.classification.time,
+                    class_time: class_time,
                     confidence: confidence_val,
-                    conf_time: data.forms.confidence.time,
+                    conf_time: conf_time,
                     accuracy: acc
                 });
 
@@ -411,9 +426,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     email_type: email_type,
                     class_val: choice,
                     classification: classification,
-                    class_time: data.forms.classification.time,
+                    class_time: class_time,
                     confidence: confidence_val,
-                    conf_time: data.forms.confidence.time,
+                    conf_time: conf_time,
                     accuracy: acc   
                 });
 
@@ -450,9 +465,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 let player = channel.registry.getClient(p.id);
                 //console.log(player.data);
                 let acc = player.data.filter(item => item.phase === "phase 2" && item.trial === trial)[0].accuracy;
-                console.log(p.id+" Acc: "+acc);
+                //console.log(p.id+" Acc: "+acc);
                 let email_type = player.data.filter(item => item.phase === "phase 2" && item.trial === trial)[0].email_type;
-                console.log(p.id+" Email Type: "+email_type);
+                //console.log(p.id+" Email Type: "+email_type);
 
                 //disconnect if 3 consecutive timeouts or 5 total timeouts
                 if (player.total_timeout >= 5 || player.consec_timeout >= 3) {
@@ -483,6 +498,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
     // Phase 2 feedback
     stager.extendStep('phase 2 feedback', {
+        minPlayers: 1,
         init: function() {
             let prev_phase = node.game.getPreviousStep();
             let phase = node.game.getStepId(prev_phase);
@@ -543,7 +559,6 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             });
 
             //save data for bot players
-            //save data for bot players
             this.pl.each(function(p) {
                 let player = channel.registry.getClient(p.id);
 
@@ -559,7 +574,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                         let output = stringify.stringify(player.data,{header: false});
                         try {
                             fs.appendFileSync('./games_available/Personalized_Phishing_Training_CogEV_v1/data/data.csv', output, 'utf8');
-                            console.log('(append file) Data saved for player '+p.id);
+                            console.log('(append file) Data saved for bot '+p.id);
                         } catch (err) {
                             console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
                         };
@@ -567,7 +582,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                         let output = stringify.stringify(player.data,{header: true});
                         try {
                             fs.writeFileSync('./games_available/Personalized_Phishing_Training_CogEV_v1/data/data.csv', output, 'utf8');
-                            console.log('(new file) Data saved for player '+p.id);
+                            console.log('(new file) Data saved for bot '+p.id);
                         } catch (err) {
                             console.log('Some error occured - file either not saved or corrupted file saved for player '+p.id);
                         };

@@ -65,7 +65,7 @@ module.exports = {
      *
      * After the max waiting time expired clients are disconnected
      */
-    MAX_WAIT_TIME: 5000, //900000,
+    MAX_WAIT_TIME: 900000,
 
     /**
      * ## START_DATE (string|object) Optional
@@ -505,7 +505,7 @@ module.exports = {
      *
      * A button is added to the interface.
      */
-    ALLOW_PLAY_WITH_BOTS: true,
+    ALLOW_PLAY_WITH_BOTS: false,
 
     /** ### ALLOW_SELECT_TREATMENT
      *
