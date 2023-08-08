@@ -36,3 +36,31 @@ window.onload = function() {
     // as parameter to connect).
     node.connect('/Personalized_Phishing_Training_CogEV_v1');
 };
+
+window.onerror = function(msg, url, lineno, colno, error) {
+    var str;
+
+    // Modification.
+    if (msg.indexOf('interrupted while the page was loading') !== -1) {
+           location.reload();
+           return;
+     }
+
+    msg = node.game.getCurrentGameStage().toString() +
+        '@' + J.getTime() + '> ' +
+        url + ' ' + lineno + ',' + colno + ': ' + msg;
+    if (error) msg + ' - ' + JSON.stringify(error);
+    that.lastError = msg;
+    node.err(msg);
+    if (node.debug) {
+        W.init({ waitScreen: true });
+        str = '<strong>DEBUG mode: client-side error ' +
+              'detected.</strong><br/><br/>';
+        str += msg;
+        str += '</br></br>Open the DevTools in your browser ' +
+        'for details.</br><em style="font-size: smaller">' +
+        'This message will not be shown in production mode.</em>';
+        W.lockScreen(str);
+    }
+    return !node.debug;
+};
