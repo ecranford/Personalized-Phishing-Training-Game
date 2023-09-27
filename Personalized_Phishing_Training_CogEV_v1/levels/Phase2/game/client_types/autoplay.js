@@ -41,7 +41,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                         node.timer.random(3000,5000).done();
                     }
                     else {
-                        node.timer.random(2000).timeup();
+                        node.timer.random(3000,5000).timeup();
                     }
                     
                 }

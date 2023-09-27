@@ -33,7 +33,19 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
 
             node.timer.setTimeout(function() {
                 // Widget steps.
-                if (id === 'phase 2' || id === 'terms and conditions' || id === 'demographics' || id === 'experience survey' || id === 'instruction quiz' || id === 'practice trial' || id === 'phase 1' || id === 'phase 3' ) {
+                if (id === 'phase 2') {
+                    
+                    //timeout a portion of the time (default is no timeout "> 0.0")
+                    if (Math.random() > 0.0) {
+                        node.widgets.lastAppended.setValues({ correct: true });
+                        node.timer.random(3000,5000).done();
+                    }
+                    else {
+                        node.timer.random(3000,5000).timeup();
+                    }
+                    
+                }
+                else if (id === 'terms and conditions' || id === 'demographics' || id === 'experience survey' || id === 'instruction quiz' || id === 'practice trial' || id === 'phase 1' || id === 'phase 3' ) {
                     
                     //timeout a portion of the time (default is no timeout "> 0.0")
                     if (Math.random() > 0.0) {

@@ -108,11 +108,12 @@ v1.0 = Cog EV baseline method
 ;;select-users will return a list of users to send phishing emails to (default: select randomly)
 ;;CogSelect will select 20% of users
 
-(defparameter +blc+ 5.0)                ;;base-level activation constant
-(defparameter +bll+ 0.5)                ;;base-level learning (decay parameter)
-(defparameter +mp+ 2.0)                 ;;mismatch penalty parameter for partial matching
-(defparameter +ans+ 0.25)               ;;transient noise parameter
-(defparameter +tmp+ (* (sqrt 2) +ans+)) ;;temperature parameter
+(defparameter +blc+ 5.0)         ;;base-level activation constant
+(defparameter +bll+ 0.5)         ;;base-level learning (decay parameter)
+(defparameter +mp+ 2.0)          ;;mismatch penalty parameter for partial matching
+(defparameter +ans+ 0.25)        ;;transient noise parameter
+(defparameter +tmp+ nil)         ;;temperature parameter
+(if (not +tmp+) (setf +tmp+ (* (sqrt 2) +ans+)))
 
 #|
 activation equation = bla + pm + noise
@@ -146,7 +147,7 @@ Pi = exp(Ai/(* (sqrt 2) ans)) / sum-of-all-chunks-j(exp(Aj/(* (sqrt 2) ans)))
 		     (let* ((email-id (parse-integer (cdr (assoc 'email--id instance))))        ;;email-id
 			    (class (read-from-string (cdr (assoc 'classification instance))))   ;;classification
 			    (stime (cdr (assoc 'timestamp instance)))                           ;;time of storage
-			    (tj (/ (- current-time stime) 1000)) ;;time (in sec) since last presentation
+			    (tj (/ (- (+ current-time 25.0) stime) 1000)) ;;time (in sec) since last presentation
 			    )		     
 		       ;;(vom:debug "email-id = ~S (~S) (~S)" email-id class stime)
 		       ;;compute activation of each email using partial matching
@@ -204,7 +205,7 @@ Pi = exp(Ai/(* (sqrt 2) ans)) / sum-of-all-chunks-j(exp(Aj/(* (sqrt 2) ans)))
 		     (let* ((email-id (parse-integer (cdr (assoc 'email--id instance))))        ;;email-id
 			    (class (read-from-string (cdr (assoc 'classification instance))))   ;;classification
 			    (stime (cdr (assoc 'timestamp instance)))                           ;;time of storage
-			    (tj (/ (- current-time stime) 1000)) ;;time (in sec) since last presentation
+			    (tj (/ (- (+ current-time 25.0) stime) 1000)) ;;time (in sec) since last presentation
 			    )
 		       ;;compute activation of each email ignoring partial matching
 		       (setf instances (acons email-id
@@ -257,17 +258,18 @@ Pi = exp(Ai/(* (sqrt 2) ans)) / sum-of-all-chunks-j(exp(Aj/(* (sqrt 2) ans)))
 		 ;;determine impact of sending phishing email on classification of phishing emails 
 		 (let ((instances '())) ;;a-list to store ((email-id . (classification . class) (activation . ai) (prob-retrieval . pi)))
 		   ;;add phishing instance to sequence with stime =current-time where classification is always 'PHISHING
-		   (push `((TIMESTAMP . ,current-time)
+		   (push `((TIMESTAMP . ,(+ 25000 current-time))
 			   (EMAIL--ID . "366")
 			   (CLASSIFICATION . "PHISHING"))
 			 instance-list)
+		   (incf num-phish)
 		   (vom:debug "Compute impact of sending phishing email on classification of phishing emails")
 		   (vom:debug "new instance email id is: ~S" (parse-integer (cdr (assoc 'email--id (first instance-list)))))
 		   (dolist (instance (copy-seq instance-list))
 		     (let* ((email-id (parse-integer (cdr (assoc 'email--id instance))))        ;;email-id
 			    (class (read-from-string (cdr (assoc 'classification instance))))   ;;classification
 			    (stime (cdr (assoc 'timestamp instance)))                           ;;time of storage
-			    (tj (/ (- (+ 30000 current-time) stime) 1000)) ;;time (in sec) since last presentation where current-time is +30 seconds
+			    (tj (/ (- (+ 55000 current-time) stime) 1000)) ;;time (in sec) since last presentation where current-time is +30 seconds
 			    )
 		       ;;compute activation of each email ignoring partial matching
 		       (setf instances (acons email-id
@@ -324,7 +326,7 @@ Pi = exp(Ai/(* (sqrt 2) ans)) / sum-of-all-chunks-j(exp(Aj/(* (sqrt 2) ans)))
 		     (let* ((email-id (parse-integer (cdr (assoc 'email--id instance))))        ;;email-id
 			    (class (read-from-string (cdr (assoc 'classification instance))))   ;;classification
 			    (stime (cdr (assoc 'timestamp instance)))                           ;;time of storage
-			    (tj (/ (- (+ 30000 current-time) stime) 1000)) ;;time (in sec) since last presentation where current-time is +30.5 seconds
+			    (tj (/ (- (+ 55000 current-time) stime) 1000)) ;;time (in sec) since last presentation where current-time is +30.5 seconds
 			    )
 		       ;;compute activation of each email ignoring partial matching
 		       (setf instances (acons email-id
