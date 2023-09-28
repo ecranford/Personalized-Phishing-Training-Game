@@ -96,6 +96,14 @@ v1.0 = Cog Low baseline method
 						      (read-from-string (nth (+ 1 i) row))
 						      (cdr (assoc email-id *EmailSims*)))))))
 
+;;create file to save data to if does not already exist
+;;Open file to write initi data to
+(with-open-file (str (make-pathname :type "txt" :name "data/coglow_data")
+		     :direction :output
+		     :if-exists nil
+		     :if-does-not-exist :create)
+  (format str "USER~CTrial~CPIphish~CPIham~CPIdiff~%" #\Tab #\Tab #\Tab #\Tab))
+
 (defun approx-act-r-noise (s)
   "Approximates a sample from a normal distribution with mean zero and
    the given s-value (/ (sqrt (* 3.0 variance)) 3.1416)."
@@ -128,7 +136,8 @@ Pi = exp(Ai/(* (sqrt 2) ans)) / sum-of-all-chunks-j(exp(Aj/(* (sqrt 2) ans)))
 
 (defun select-users (current-time user-history)
   (let ((user-ids '())
-	(user-data '())) ;;a-list to store ((user-id . (piphish . piphish) (piham . piham)))
+	(user-data '()) ;;a-list to store ((user-id . (piphish . piphish) (piham . piham)))
+	(trial (- (1+ (length (cdar (first user-history)))) 20)))
     (dolist (user (copy-seq user-history))
       (let ((user-id (caar user))
 	    (instance-list (cdar user))) ;;need to change all incorrect phishing classifications to classification=phishing
@@ -196,21 +205,30 @@ Pi = exp(Ai/(* (sqrt 2) ans)) / sum-of-all-chunks-j(exp(Aj/(* (sqrt 2) ans)))
 	       ;;pi-phish - pi-ham
 	       (vom:debug "Compute PIphish")
 	       ;;(vom:debug "User ~S data is ~S" user-id user-data)
-	       (let ((pi-phish (- (cdr (assoc 'pi-phish (cdr (assoc user-id user-data))))
+	       (let ((pi-diff (- (cdr (assoc 'pi-phish (cdr (assoc user-id user-data))))
 				  (cdr (assoc 'pi-ham (cdr (assoc user-id user-data)))))))
-		 (setf (cdr (assoc user-id user-data)) (acons 'PI-PHISH
-							      pi-phish
+		 (setf (cdr (assoc user-id user-data)) (acons 'PI-DIFF
+							      pi-diff
 							      (cdr (assoc user-id user-data)))))
 	       )
 	      (t
 	       (setf user-data (acons user-id
-				      `(,(cons 'PI-PHISH 0.5))
+				      `(,(cons 'PI-DIFF 0.5))
 				      user-data))))
 	))
+
+    ;;save data to file
+    (with-open-file (str (make-pathname :type "txt" :name "data/coglow_data")
+			 :direction :output
+			 :if-exists :append
+			 :if-does-not-exist :create)
+      (dolist (user user-data) 
+	(format str "~A~C~A~C~A~C~A~C~A~%"
+		(car user) #\Tab trial #\Tab (cdr (assoc 'pi-phish (cdr user))) #\Tab (cdr (assoc 'pi-ham (cdr user))) #\Tab (cdr (assoc 'pi-diff (cdr user))))))
     
     ;;(vom:debug "user-data is ~S" user-data)
     ;;select set of users with highest EVdiff values
-    (setf user-ids (mapcar #'car (n-most-extreme 2 user-data #'< :key #'(lambda (x) (cdr (assoc 'PI-PHISH (cdr x)))))))
+    (setf user-ids (mapcar #'car (n-most-extreme 2 user-data #'< :key #'(lambda (x) (cdr (assoc 'PI-DIFF (cdr x)))))))
     
     user-ids)
   )
