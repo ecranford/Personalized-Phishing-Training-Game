@@ -130,6 +130,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
         widget: {
             name: 'Consent',
             id: 'consent',
+            texts:{
+                consentTerms: "<b>By aggreeing to consent, you are confirming the following statements:<br>I am age 18 or older.<br>I have read and understand the information above.<br>I want to participate in this research and continue with the study.<br>Do you understand and consent to these terms?<b>"
+            }
         },
         
         exit: function() {
