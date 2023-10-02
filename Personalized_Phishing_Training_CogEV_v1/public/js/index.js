@@ -50,7 +50,7 @@ window.onerror = function(msg, url, lineno, colno, error) {
         '@' + J.getTime() + '> ' +
         url + ' ' + lineno + ',' + colno + ': ' + msg;
     if (error) msg + ' - ' + JSON.stringify(error);
-    that.lastError = msg;
+    node.errorManager.lastError = msg;
     node.err(msg);
     if (node.debug) {
         W.init({ waitScreen: true });
