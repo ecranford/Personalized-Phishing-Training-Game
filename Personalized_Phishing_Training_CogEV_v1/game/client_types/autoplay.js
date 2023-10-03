@@ -50,10 +50,10 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     //timeout a portion of the time (default is no timeout "> 0.0")
                     if (Math.random() > 0.0) {
                         node.widgets.lastAppended.setValues({ correct: true });
-                        node.timer.random(2000).done();
+                        node.timer.random(2000,3000).done();
                     }
                     else {
-                        node.timer.random(2000).timeup();
+                        node.timer.random(2000,3000).timeup();
                     }
                     
                 }
@@ -61,10 +61,9 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     return null;
                 }
                 else {
-                    node.timer.random(2000).done();
+                    node.timer.random(2000,3000).done();
                 }
-                
-            }, 2000);
+            }, 1000);
         });
     });
 

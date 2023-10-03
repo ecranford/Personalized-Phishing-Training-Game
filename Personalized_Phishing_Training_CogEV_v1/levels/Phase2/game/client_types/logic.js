@@ -56,6 +56,18 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             //console.log("player "+p.id+" data is: "+channel.registry.getClient(p.id).data);
         });
         
+        node.on.data('level_done', function(msg) {
+            // currentRoom is optional, avoid lookup.
+            let currentRoom; // let currentRoom = gameRoom.name; 
+            let levelName = 'Phase3';
+            // Move client to the next level.
+            // (async so that it finishes all current step operations).
+            setTimeout(function() {
+                console.log('moving client to next level: ', msg.from);
+                channel.moveClientToGameLevel(msg.from, levelName, currentRoom);
+            }, 100);
+        });
+
         node.on.pdisconnect(function(player) {
             if (player.disconnected) {
                 //don't allow player to reconnect
@@ -544,18 +556,6 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                     'email_id', 'email_type','class_val','classification',
                     'class_time','confidence','conf_time','accuracy'
                 ]
-            });
-
-            node.on.data('level_done', function(msg) {
-                // currentRoom is optional, avoid lookup.
-                let currentRoom; // let currentRoom = gameRoom.name; 
-                let levelName = 'Phase3';
-                // Move client to the next level.
-                // (async so that it finishes all current step operations).
-                setTimeout(function() {
-                    console.log('moving client to next level: ', msg.from);
-                    channel.moveClientToGameLevel(msg.from, levelName, currentRoom);
-                }, 100);
             });
 
             //save data for bot players

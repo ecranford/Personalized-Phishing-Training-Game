@@ -159,11 +159,12 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             text: 'Resume Now',
             className: 'btn btn-lg btn-secondary btn-block'
         },
-        done: function() {
-            node.say('level_done');
-        },
         exit: function() {
             node.game.doneButton.show();
         }
+    });
+
+    stager.setOnGameover(function() {
+        node.say('level_done');
     });
 };

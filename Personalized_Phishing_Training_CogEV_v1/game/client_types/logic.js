@@ -68,6 +68,18 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
             }
         });
 
+        node.on.data('level_done', function(msg) {
+            // currentRoom is optional, avoid lookup.
+            let currentRoom; // let currentRoom = gameRoom.name; 
+            let levelName = 'Phase2';
+            // Move client to the next level.
+            // (async so that it finishes all current step operations).
+            setTimeout(function() {
+                console.log('moving client to next level: ', msg.from);
+                channel.moveClientToGameLevel(msg.from, levelName, currentRoom);
+            }, 100);
+        });
+
         // Last instruction in the init function.
         // Game on clients must be started manually
         // (because syncStepping is disabled).
@@ -483,17 +495,7 @@ module.exports = function(treatmentName, settings, stager, setup, gameRoom) {
                 ]
             });
 
-            node.on.data('level_done', function(msg) {
-                // currentRoom is optional, avoid lookup.
-                let currentRoom; // let currentRoom = gameRoom.name; 
-                let levelName = 'Phase2';
-                // Move client to the next level.
-                // (async so that it finishes all current step operations).
-                setTimeout(function() {
-                    console.log('moving client to next level: ', msg.from);
-                    channel.moveClientToGameLevel(msg.from, levelName, currentRoom);
-                }, 100);
-            });
+            
         }
     });
 
