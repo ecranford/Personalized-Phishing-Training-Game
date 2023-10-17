@@ -193,8 +193,8 @@ def get_whittle_indices(T, gamma, N=2):
         return np.stack([i1,i2,i3], -1)
 
 
-def takeAction(current_states, T, actions, random_stream):
-
+def takeAction(current_states, T, actions, observed_states, random_stream):
+    
     N = len(current_states)
 
     # Get next state
@@ -205,10 +205,12 @@ def takeAction(current_states, T, actions, random_stream):
     for i in range(N):
 
         current_state = int(current_states[i])
-
-        next_state = np.argmax(random_stream.multinomial(
+        if(int(actions[i])==1):
+            next_states[i] = observed_states[i]
+        else:
+            next_state = np.argmax(random_stream.multinomial(
             1, T[i, current_state, int(actions[i]), :]))
-        next_states[i] = next_state
+            next_states[i] = next_state
 
         # if current_state != next_state:
         #     print(i, current_state, int(actions[i]), next_state, T[i, current_state, int(actions[i]), :])
@@ -747,16 +749,6 @@ def simulateAdherence(N, L, T, R, C, B, k, policy_option, optimal_policy=None, c
             N, C, B, options)
 
     qvalues_log = []
-    file = open("policy.txt", "a")
-    file2 = open("frequency.txt", "a")
-    if policy_option >= 71:
-        file.write('--------------------------------- \n')
-        file.write('This is the policy for a new seed \n')
-        file.write('--------------------------------- \n')
-        file2.write('--------------------------------- \n')
-        file2.write('This is the policy for a new seed \n')
-        file2.write('--------------------------------- \n')
-
     
     for t in tqdm.tqdm(range(1, L)):
         #print("Round: %s"%t)
@@ -830,20 +822,23 @@ def simulateAdherence(N, L, T, R, C, B, k, policy_option, optimal_policy=None, c
                                  t=t, qlearning_objects=qlearning_objects)
 
         else:
+            #DREW, these are the actions selected by RMAB which should be fed to the cognitive model
             actions = getActions(N, T_hat, R, C, B, k, valid_action_combinations=valid_action_combinations, current_state=state_log[:, t-1],
                                  optimal_policy=optimal_policy, type_dist=type_dist,
                                  policy_option=policy_option, combined_state_dict=combined_state_dict, gamma=gamma,
                                  indexes=indexes, output_data=output_data, True_T=T, learning_random_stream=learning_random_stream,
                                  t=t, qlearning_objects=qlearning_objects)
+            #send these actions to cognitive model
 
         actions_record[:, t-1] = actions
 
         if action_logs is not None:
             action_logs[policy_option].append(actions.astype(int))
-
+        #DREW here we need to use the observations from the cognitive model for each individual that we take an action let observed state be the observed state of each individual read this observed state from the cognitive model and feed it to take action
         # TODO: Modify T_hat to estimated value of T_hat (sliding window, etc.)
-        state_log[:, t] = takeAction(
-            state_log[:, t-1].reshape(-1), T, actions, random_stream=world_random_stream)
+        observed_states = np.zeros(N)
+        
+        state_log[:, t] = takeAction(state_log[:, t-1].reshape(-1), T, actions, observed_states, random_stream=world_random_stream)
 
 
         # if policy_option >= 71 and policy_option <= 74:
