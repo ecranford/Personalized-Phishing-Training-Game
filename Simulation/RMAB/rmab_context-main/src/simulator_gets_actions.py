@@ -205,7 +205,7 @@ def takeAction(current_states, T, actions, observed_states, random_stream):
     for i in range(N):
 
         current_state = int(current_states[i])
-        if(observed_states is not None and int(actions[i])==1):
+        if(int(actions[i])==1):
             next_states[i] = observed_states[i]
         else:
             next_state = np.argmax(random_stream.multinomial(
@@ -331,12 +331,12 @@ def getActions(N, T_hat, R, C, B, k, features=None, seed=None, valid_action_comb
                 return getActions(N, T_hat, R, C, B, k, valid_action_combinations=valid_action_combinations, current_state=current_state,
                                   policy_option=3, combined_state_dict=combined_state_dict,
                                   indexes=indexes, output_data=output_data, True_T=True_T,
-                                  t=t, qlearning_objects=qlearning_objects, seed=seedbase)
+                                  t=t, qlearning_objects=qlearning_objects)
             else:
                 return getActions(N, T_hat, R, C, B, k, valid_action_combinations=valid_action_combinations, current_state=current_state,
                                   policy_option=3, combined_state_dict=combined_state_dict,
                                   indexes=indexes, output_data=output_data, True_T=True_T,
-                                  qlearning_objects=qlearning_objects, seed=seedbase)
+                                  qlearning_objects=qlearning_objects)
 
         # print('exploiting')
 
@@ -554,13 +554,13 @@ def getActions(N, T_hat, R, C, B, k, features=None, seed=None, valid_action_comb
                 actions = getActions(N, T_hat, R, C, B, k, valid_action_combinations=valid_action_combinations, current_state=current_state,
                                      policy_option=80, combined_state_dict=combined_state_dict,
                                      indexes=indexes, output_data=output_data, True_T=True_T,
-                                     t=t, qlearning_objects=qlearning_objects, seed=seedbase)
+                                     t=t, qlearning_objects=qlearning_objects)
 
             else:
                 actions = getActions(N, T_hat, R, C, B, k, valid_action_combinations=valid_action_combinations, current_state=current_state,
                                      policy_option=80, combined_state_dict=combined_state_dict,
                                      indexes=indexes, output_data=output_data, True_T=True_T,
-                                     qlearning_objects=qlearning_objects, seed=seedbase)
+                                     qlearning_objects=qlearning_objects)
 
             # print(actions)
             return actions
@@ -627,7 +627,7 @@ def thompson_sampling(N, T_shape, priors, counts, random_stream):
                 T_hat[i, j, k, 1] = 1 - T_hat[i, j, k, 0]
     return T_hat
 
-def simulateAdherence(N, L, T, R, C, B, k, previous_actions=None, previous_states=None, policy_option=44, optimal_policy=None, combined_state_dict=None,
+def simulateAdherence(N, L, T, R, C, B, k, policy_option, optimal_policy=None, combined_state_dict=None,
                       action_logs={}, features=None, cumulative_state_log=None,
                       seedbase=None, savestring='trial', learning_mode=False,
                       world_random_seed=None, learning_random_seed=None, verbose=False,
@@ -823,24 +823,21 @@ def simulateAdherence(N, L, T, R, C, B, k, previous_actions=None, previous_state
 
         else:
             #DREW, these are the actions selected by RMAB which should be fed to the cognitive model
-            if t == L-1 or previous_actions is None:
-                actions = getActions(N, T_hat, R, C, B, k, valid_action_combinations=valid_action_combinations, current_state=state_log[:, t-1],
+            actions = getActions(N, T_hat, R, C, B, k, valid_action_combinations=valid_action_combinations, current_state=state_log[:, t-1],
                                  optimal_policy=optimal_policy, type_dist=type_dist,
                                  policy_option=policy_option, combined_state_dict=combined_state_dict, gamma=gamma,
                                  indexes=indexes, output_data=output_data, True_T=T, learning_random_stream=learning_random_stream,
-                                 t=t, qlearning_objects=qlearning_objects, seed=seedbase)
-            else:
-                actions = previous_actions[t]
+                                 t=t, qlearning_objects=qlearning_objects)
+            #send these actions to cognitive model
+
         actions_record[:, t-1] = actions
 
         if action_logs is not None:
             action_logs[policy_option].append(actions.astype(int))
         #DREW: here we need to use the observations from the cognitive model for each individual that we take an action let observed state be the observed state of each individual, read this observed state from the cognitive model and feed it to take action
         # TODO: Modify T_hat to estimated value of T_hat (sliding window, etc.)
-        observed_states = None
-        if previous_states is not None:
-            observed_states = previous_states[t]
-
+        observed_states = np.zeros(N)
+        
         state_log[:, t] = takeAction(state_log[:, t-1].reshape(-1), T, actions, observed_states, random_stream=world_random_stream)
 
 
@@ -1092,10 +1089,6 @@ if __name__ == "__main__":
                         type=int, help="Number of distinct feature arm types")
     parser.add_argument('-td', '--type_dist', nargs='+', default=None,
                         type=int, help="Distribution of types of arms")
-    parser.add_argument('-pa', '--previous_actions', nargs='+',
-                         help="Previous_Actions")
-    parser.add_argument('-ps', '--previous_states', nargs='+',
-                        help="Previous_States")
 
     parser.add_argument('-d', '--data', default='real', choices=['rmab_context_features_lipschitz', 'rmab_context_diffT', 'rmab_context_diffT_diffR',
                                                                 'rmab_context_features', 'full_random_online', 'arpita_sim1',
@@ -1200,16 +1193,15 @@ if __name__ == "__main__":
 
     add_to_seed_for_specific_trial = 0
 
-    #shahin: change the seedbase to be fixed
-    first_seedbase = 0 #np.random.randint(0, high=100000)
+    first_seedbase = np.random.randint(0, high=100000)
     if args.seed_base is not None:
         first_seedbase = args.seed_base+add_to_seed_for_specific_trial
 
-    first_world_seedbase = 0 #np.random.randint(0, high=100000)
+    first_world_seedbase = np.random.randint(0, high=100000)
     if args.world_seed_base is not None:
         first_world_seedbase = args.world_seed_base+add_to_seed_for_specific_trial
 
-    first_learning_seedbase = 0 #np.random.randint(0, high=100000)
+    first_learning_seedbase = np.random.randint(0, high=100000)
     if args.learning_seed_base is not None:
         first_learning_seedbase = args.learning_seed_base+add_to_seed_for_specific_trial
 
@@ -1234,7 +1226,6 @@ if __name__ == "__main__":
         type_dist = [1 for _ in range(num_types)]
 
     record_policy_actions = list(pname.keys())
-    
 
     # for rapid prototyping
     # use this to avoid updating all the function calls when you need to pass in new
@@ -1290,11 +1281,6 @@ if __name__ == "__main__":
         C = None
         B = None
         start_state = None
-        previous_states = np.array(args.previous_states)
-        print("printing stuff here")
-        print(previous_states)
-        print(previous_states.shape)
-        previous_actions = np.array(args.previous_actions)
 
         # --------------------------------
         #DREW, here is where you need to update the number of players in each type
@@ -1495,7 +1481,6 @@ if __name__ == "__main__":
             num_types = 10
             type_dist = np.array([10 for _ in range(N//num_types)])
 
-        np.random.seed(seed=seedbase)
         
         # Start state
         if args.start_state == -1:
@@ -1503,10 +1488,10 @@ if __name__ == "__main__":
         elif args.start_state is not None:
             start_state = np.full(N, args.start_state)
 
-
+        np.random.seed(seed=seedbase)
 
         T_steady = solve_steady(T, args.num_actions)
-        
+
         for p, policy_option in enumerate(policies):
 
             policy_start_time = time.time()
@@ -1521,7 +1506,13 @@ if __name__ == "__main__":
 
                 L_in = L
 
-                state_matrix, action_logs, qvalues = simulateAdherence(N, L_in, T, R, C, B, k, previous_actions, previous_states, policy_option=policy_option, seedbase=seedbase, action_logs=action_logs, features=F, cumulative_state_log=cumulative_state_log, learning_mode=LEARNING_MODE, learning_random_seed=learning_seed_base, world_random_seed=world_seed_base, optimal_policy=optimal_policy, combined_state_dict=combined_state_dict, file_root=file_root, output_data=output_data, start_state=start_state, do_plot=do_plot, pname=pname, gamma=args.discount_factor, type_dist=type_dist, LC=LC, beta=args.beta, lud=args.lud, qinit=args.qinit, eqdist=args.eqdist, nknown=args.nknown)
+                state_matrix, action_logs, qvalues = simulateAdherence(N, L_in, T, R, C, B, k, policy_option=policy_option, seedbase=seedbase,
+                                                                       action_logs=action_logs, features=F, cumulative_state_log=cumulative_state_log,
+                                                                       learning_mode=LEARNING_MODE, learning_random_seed=learning_seed_base,
+                                                                       world_random_seed=world_seed_base, optimal_policy=optimal_policy,
+                                                                       combined_state_dict=combined_state_dict, file_root=file_root, output_data=output_data,
+                                                                       start_state=start_state, do_plot=do_plot, pname=pname,
+                                                                       gamma=args.discount_factor, type_dist=type_dist, LC=LC, beta=args.beta, lud=args.lud, qinit=args.qinit, eqdist=args.eqdist, nknown=args.nknown)
 
                 np.save(file_root+'/logs/adherence_log/states_%s_N%s_b%s_L%s_policy%s_data%s_seed%s_S%s_A%s_start%s_lud%s_beta%s_qinit%s_eqdist%s_nknown%s' % (savestring, N,
                         args.budget_frac, L_in, policy_option, args.data, seedbase, args.num_states, args.num_actions, args.start_state, args.lud, args.beta, args.qinit, args.eqdist, args.nknown), state_matrix)

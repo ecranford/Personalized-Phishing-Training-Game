@@ -352,7 +352,7 @@ def behavorial(N):
 
 
 def simple_spam_ham(N):
-    #Drew: here os where you update the transition probabilities for each type
+    #Drew: here is where you update the transition probabilities for each type
     T1 = np.array(
         [
             [
@@ -430,22 +430,22 @@ def simple_spam_ham(N):
     F = []
 
     #Drew: here is where you update the number of players in each type by just adjusting the value in the range which is percentage in that type * N (total players)
-    for _ in range(int(0.21 * N)):
+    for _ in range(1):
         T.append(T1)
         R.append(r)
         F.append([1, 0, 0, 0])
 
-    for _ in range(int(0.214 * N)):
+    for _ in range(1):
         T.append(T2)
         R.append(r)
         F.append([0, 1, 0, 0])
 
-    for _ in range(int(0.305 * N)):
+    for _ in range(1):
         T.append(T3)
         R.append(r)
         F.append([0, 0, 1, 0])
 
-    for _ in range(int(0.271 * N)):
+    for _ in range(1):
         T.append(T4)
         R.append(r)
         F.append([0, 0, 0, 1])
