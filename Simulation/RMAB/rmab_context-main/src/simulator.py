@@ -201,21 +201,25 @@ def takeAction(current_states, T, actions, observed_states, random_stream):
     # print(current_states)
     # print(T.shape)
     next_states = np.zeros(current_states.shape)
-    
+    print("observed_states")
+    print(observed_states)
     for i in range(N):
 
         current_state = int(current_states[i])
         if(observed_states is not None and int(actions[i])==1):
-            next_states[i] = observed_states[i]
+            #print("update to observed state")
+            next_states[i] = int(observed_states[i])
         else:
+            #print("update to unobserved states")
             next_state = np.argmax(random_stream.multinomial(
             1, T[i, current_state, int(actions[i]), :]))
-            next_states[i] = next_state
+            next_states[i] = int(next_state)
 
         # if current_state != next_state:
         #     print(i, current_state, int(actions[i]), next_state, T[i, current_state, int(actions[i]), :])
 
-    # print(next_states)
+    print("next states are")
+    print(next_states)
 
     return next_states
 
@@ -326,7 +330,7 @@ def getActions(N, T_hat, R, C, B, k, features=None, seed=None, valid_action_comb
         # with prob epsilon, explore randomly
         # This call will also decay epsilon
         if ql_object.check_random(t, random_stream=learning_random_stream):
-            # print('Doing a random')
+            print('Doing a random')
             if N <= 10:
                 return getActions(N, T_hat, R, C, B, k, valid_action_combinations=valid_action_combinations, current_state=current_state,
                                   policy_option=3, combined_state_dict=combined_state_dict,
@@ -362,6 +366,14 @@ def getActions(N, T_hat, R, C, B, k, features=None, seed=None, valid_action_comb
         if not payment <= B:
             raise ValueError("Over budget")
 
+        #print("the payment is")
+        #print(payment)
+        #Shahin:adding random actions when the whittle index is zero
+        while(payment < B):
+            index = np.random.randint(N)
+            if(actions[index] == 0):
+                actions[index] = 1
+                payment += C[actions[index]]
         return actions
 
     elif policy_option in [54]:
@@ -508,7 +520,6 @@ def getActions(N, T_hat, R, C, B, k, features=None, seed=None, valid_action_comb
         #    print(budget)
         #    print(np.sum(actions))
             
-            
         return actions
 
     elif policy_option == 80:
@@ -627,15 +638,16 @@ def thompson_sampling(N, T_shape, priors, counts, random_stream):
                 T_hat[i, j, k, 1] = 1 - T_hat[i, j, k, 0]
     return T_hat
 
-def simulateAdherence(N, L, T, R, C, B, k, previous_actions=None, previous_states=None, policy_option=44, optimal_policy=None, combined_state_dict=None,
+def simulateAdherence(N, L, T, R, C, B, k, previous_actions, previous_states, policy_option=44, optimal_policy=None, combined_state_dict=None,
                       action_logs={}, features=None, cumulative_state_log=None,
-                      seedbase=None, savestring='trial', learning_mode=False,
+                      seedbase=None, savestring='trial', learning_mode=0,
                       world_random_seed=None, learning_random_seed=None, verbose=False,
                       file_root=None, gamma=0.95, type_dist=None,
-                      output_data=None, start_state=None, do_plot=None,
+                      output_data=None, start_state=0, do_plot=None,
                       pname=None, LC=None, kappa=0, beta=0.4, lud=2,
                       qinit=0, eqdist=0, nknown=0):
 
+    np.random.seed = 0
     learning_random_stream = np.random.RandomState()
     if learning_mode > 0:
         learning_random_stream.seed(learning_random_seed)
@@ -682,7 +694,7 @@ def simulateAdherence(N, L, T, R, C, B, k, previous_actions=None, previous_state
                                qinit=qinit, eqdist=eqdist, nknown=nknown)
     qlearning_objects['ql_object'] = ql_object
 
-    print("type_dist", type_dist)
+    #print("type_dist", type_dist)
     if type_dist is not None and len(type_dist) != 0:
         if policy_option >= 81 and policy_option <= 84:
             N_super = len(type_dist)
@@ -697,7 +709,7 @@ def simulateAdherence(N, L, T, R, C, B, k, previous_actions=None, previous_state
             qlearning_objects['ql_object_context'] = ql_object_context
 
         elif policy_option >= 71 and policy_option <= 74:
-            print(type_dist)
+            #print(type_dist)
             N_super = len(type_dist)
             print(N_super)
             ql_object_context = rmab_ql.RMABQL(N_super, k, eps, alpha, gamma,
@@ -718,7 +730,7 @@ def simulateAdherence(N, L, T, R, C, B, k, previous_actions=None, previous_state
 
     indexes = np.zeros((N, C.shape[0]))
 
-    print('Running simulation w/ policy: %s' % policy_option)
+    #print('Running simulation w/ policy: %s' % policy_option)
 
     # TODO: Change to make this random start state
     # state_log[:,0]=T.shape[1]-1
@@ -753,8 +765,8 @@ def simulateAdherence(N, L, T, R, C, B, k, previous_actions=None, previous_state
     for t in tqdm.tqdm(range(1, L)):
         #print("Round: %s"%t)
 
-        #print("t = ")
-        #print(t)
+        print("t = ")
+        print(t)
         st = time.time()
         T_hat = None
         if learning_mode == 0:
@@ -822,15 +834,20 @@ def simulateAdherence(N, L, T, R, C, B, k, previous_actions=None, previous_state
                                  t=t, qlearning_objects=qlearning_objects)
 
         else:
+            #print("policy 44 actions")
             #DREW, these are the actions selected by RMAB which should be fed to the cognitive model
             if t == L-1 or previous_actions is None:
+                #print("top")
                 actions = getActions(N, T_hat, R, C, B, k, valid_action_combinations=valid_action_combinations, current_state=state_log[:, t-1],
                                  optimal_policy=optimal_policy, type_dist=type_dist,
                                  policy_option=policy_option, combined_state_dict=combined_state_dict, gamma=gamma,
                                  indexes=indexes, output_data=output_data, True_T=T, learning_random_stream=learning_random_stream,
                                  t=t, qlearning_objects=qlearning_objects, seed=seedbase)
             else:
-                actions = previous_actions[t]
+                #print("bottom")
+                actions = previous_actions[t-1]
+        print("selected actions are")
+        print(actions)
         actions_record[:, t-1] = actions
 
         if action_logs is not None:
@@ -838,8 +855,9 @@ def simulateAdherence(N, L, T, R, C, B, k, previous_actions=None, previous_state
         #DREW: here we need to use the observations from the cognitive model for each individual that we take an action let observed state be the observed state of each individual, read this observed state from the cognitive model and feed it to take action
         # TODO: Modify T_hat to estimated value of T_hat (sliding window, etc.)
         observed_states = None
-        if previous_states is not None:
-            observed_states = previous_states[t]
+        if t < L-1 and previous_states is not None:
+            #print("updating the previous state")
+            observed_states = previous_states[t-1]
 
         state_log[:, t] = takeAction(state_log[:, t-1].reshape(-1), T, actions, observed_states, random_stream=world_random_stream)
 
@@ -1096,6 +1114,8 @@ if __name__ == "__main__":
                          help="Previous_Actions")
     parser.add_argument('-ps', '--previous_states', nargs='+',
                         help="Previous_States")
+    parser.add_argument('-ss', '--start_state', nargs='+',
+                        help="Start_State", type=int)
 
     parser.add_argument('-d', '--data', default='real', choices=['rmab_context_features_lipschitz', 'rmab_context_diffT', 'rmab_context_diffT_diffR',
                                                                 'rmab_context_features', 'full_random_online', 'arpita_sim1',
@@ -1212,7 +1232,7 @@ if __name__ == "__main__":
     first_learning_seedbase = 0 #np.random.randint(0, high=100000)
     if args.learning_seed_base is not None:
         first_learning_seedbase = args.learning_seed_base+add_to_seed_for_specific_trial
-
+        
     N = args.num_patients
     L = args.simulation_length
     k = 0
@@ -1267,6 +1287,26 @@ if __name__ == "__main__":
     qv = np.frompyfunc(list, 0, 1)(np.empty((L,100, args.num_states, args.num_actions, 3), dtype=object))
     dqv = np.frompyfunc(list, 0, 1)(np.empty((L,100, args.num_states, 3), dtype=object))
 
+    previous_states_list = args.previous_states
+    previous_states = []
+    for x in previous_states_list:
+     previous_states.append(eval(x))
+    previous_states = np.array(previous_states)
+    previous_states = previous_states[0]
+    #previous_states = previous_states.tolist()
+    #print(previous_states)
+    #print(previous_states.type)
+    previous_actions_list = args.previous_actions
+    #print("printing stuff here")
+    previous_actions = []
+    for x in previous_actions_list:
+     previous_actions.append(eval(x))
+    previous_actions = np.array(previous_actions)
+    previous_actions = previous_actions[0]
+    #print(previous_actions)
+    #print(previous_actions.shape)
+
+
     for i in range(N_TRIALS):
 
         # do_plot = i==0
@@ -1290,12 +1330,6 @@ if __name__ == "__main__":
         C = None
         B = None
         start_state = None
-        previous_states = np.array(args.previous_states)
-        print("printing stuff here")
-        print(previous_states)
-        print(previous_states.shape)
-        previous_actions = np.array(args.previous_actions)
-
         # --------------------------------
         #DREW, here is where you need to update the number of players in each type
         if args.data == 'simple_spam_ham':
@@ -1498,10 +1532,12 @@ if __name__ == "__main__":
         np.random.seed(seed=seedbase)
         
         # Start state
+        #print(args.start_state)
         if args.start_state == -1:
             start_state = np.random.randint(args.num_states, size=N)
         elif args.start_state is not None:
             start_state = np.full(N, args.start_state)
+        #print(start_state)
 
 
 
@@ -1522,8 +1558,10 @@ if __name__ == "__main__":
                 L_in = L
 
                 state_matrix, action_logs, qvalues = simulateAdherence(N, L_in, T, R, C, B, k, previous_actions, previous_states, policy_option=policy_option, seedbase=seedbase, action_logs=action_logs, features=F, cumulative_state_log=cumulative_state_log, learning_mode=LEARNING_MODE, learning_random_seed=learning_seed_base, world_random_seed=world_seed_base, optimal_policy=optimal_policy, combined_state_dict=combined_state_dict, file_root=file_root, output_data=output_data, start_state=start_state, do_plot=do_plot, pname=pname, gamma=args.discount_factor, type_dist=type_dist, LC=LC, beta=args.beta, lud=args.lud, qinit=args.qinit, eqdist=args.eqdist, nknown=args.nknown)
+                
 
-                np.save(file_root+'/logs/adherence_log/states_%s_N%s_b%s_L%s_policy%s_data%s_seed%s_S%s_A%s_start%s_lud%s_beta%s_qinit%s_eqdist%s_nknown%s' % (savestring, N,
+                #Shahin:Commented this part out
+                """np.save(file_root+'/logs/adherence_log/states_%s_N%s_b%s_L%s_policy%s_data%s_seed%s_S%s_A%s_start%s_lud%s_beta%s_qinit%s_eqdist%s_nknown%s' % (savestring, N,
                         args.budget_frac, L_in, policy_option, args.data, seedbase, args.num_states, args.num_actions, args.start_state, args.lud, args.beta, args.qinit, args.eqdist, args.nknown), state_matrix)
 
                 qvalues_log[policy_option].append(np.array(qvalues))
@@ -1595,10 +1633,11 @@ if __name__ == "__main__":
 
             # print(N_TRIALS, len(policies))
             # print(i, p)
-            runtimes[i, p] = policy_run_time
+            runtimes[i, p] = policy_run_time"""
 
         ##### SAVE ALL RELEVANT LOGS #####
-
+        #Shahin:commenting all the logs
+        """
         # write out action logs
         for policy_option in action_logs.keys():
             fname = os.path.join(args.file_root, 'logs/action_logs/action_logs_%s_N%s_b%s_L%s_policy%s_data%s_seed%s_S%s_A%s_start%s_lud%s_beta%s_qinit%s_eqdist%s_nknown%s' % (
@@ -1617,7 +1656,10 @@ if __name__ == "__main__":
         # write out T matrix logs
         # fname = os.path.join(args.file_root,'logs/Tmatrix_logs/Tmatrix_logs_'+savestring+'_N%s_k%s_L%s_data%s_s%s_lr%s_bl%s_t1f%s.csv'%(N,k,L, args.data, seedbase, LEARNING_MODE, args.buffer_length, args.get_last_call_transition_flag))
         # np.save(fname, T)
-
+        """
+    
+    #Shahin:commenting more stuff
+"""
     end = time.time()
     print("Time taken: ", end-start)
 
@@ -1832,3 +1874,4 @@ if __name__ == "__main__":
         # python simulator.py -pc -1 -d rmab_context -l 100 -s 0 -ws 0 -ls 0 -g 0.95 -adm 3 -A 2 -n 100 -lr 1 -N 20 -sts 2 -nt 4 -b 0.1 -td 40 30 20 10
         # python simulator.py -pc 10 -d rmab_context_features -l 100 -s 0 -ws 0 -ls 0 -g 0.95 -adm 3 -A 2 -n 10 -lr 1 -N 20 -sts 2 -b 0.1
         # python simulator.py -pc -1 -d arpita_circulant_dynamics -l 100 -s 0 -ws 0 -ls 0 -g 0.99 -S 4 -A 2 -n 100 -lr 1 -N 30 -sts -1 -b 0.2
+"""
