@@ -2,7 +2,7 @@ Cog Model has been modified to communicate directly with the RMAB to run simulat
 MURI_PhishingModel_RMAB_Simulations.lisp is the cog model simulation
 combinedemailsdata_cleaned_updated_20221122.csv is the database of emails
 similarity-cache.lisp is the cache of similarities between features of emails
-EmailSimilarityMatrix_sum.csv is the cache of summed similarities for model-tracing verstion of the cog model
+EmailSimilarityMatrix_sum_decomp.csv is the cache of summed similarities for model-tracing verstion of the cog model
 similarity-service.lisp is the service that gets similarities (will be cached for this simulation).
 
 Data will be saved as:
