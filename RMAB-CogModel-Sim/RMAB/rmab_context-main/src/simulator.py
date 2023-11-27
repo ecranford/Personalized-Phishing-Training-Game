@@ -219,8 +219,8 @@ elif args.start_state is not None:
 
 ## Function to estimate next states for QLearning
 ## If using cognitive model, this will need to change so that all next_states are what is observed by the model (i.e., might not need call takeAction at all in that case)
-def takeAction(current_states, T, actions, observed_states, random_stream):
-    
+def takeAction(current_states, T, actions, observed_states, random_stream, Cog_States=False):
+
     N = len(current_states)
 
     # Get next state
@@ -231,7 +231,9 @@ def takeAction(current_states, T, actions, observed_states, random_stream):
     for i in range(N):
 
         current_state = int(current_states[i])
-        if(int(actions[i])==1):
+        if Cog_States:
+            next_states[i] = observed_states[i]
+        elif(int(actions[i])==1):
             next_states[i] = observed_states[i]
         else:
             next_state = np.argmax(random_stream.multinomial(1, T[i, current_state, int(actions[i]), :]))
@@ -329,14 +331,14 @@ def getActions(N, T_hat, R, C, B, k, features=None, seed=None, valid_action_comb
 
         # # otherwise act greedily
         indexes_per_state = qlearning_objects[qlearning_objects_group].get_indexes()
-        #print("indexes is", indexes_per_state)
+        print("indexes is", indexes_per_state)
         # indexes_per_state = indexes_per_state.cumsum(axis=1)
 
         # print('indexes')
         # print(indexes_per_state)
         decision_matrix = lp_methods.action_knapsack(indexes_per_state, C, B)
         # print("knapsack time:",time.time() - start)
-        #print("decision_matrix is", decision_matrix)
+        print("decision_matrix is", decision_matrix)
 
         # print(decision_matrix)
         actions = np.argmax(decision_matrix, axis=1)
@@ -355,7 +357,8 @@ def getActions(N, T_hat, R, C, B, k, features=None, seed=None, valid_action_comb
 
 def processRequest(groupID,
                    trial,
-                   observed_states):
+                   observed_states,
+                   Cog_States=False):
     ##declare globals
     global group_data
     global qlearning_objects
@@ -369,7 +372,8 @@ def processRequest(groupID,
                                                             T, 
                                                             group_data[groupID].action_logs[trial-1], 
                                                             observed_states, 
-                                                            random_stream=group_data[groupID].world_random_stream)
+                                                            random_stream=group_data[groupID].world_random_stream,
+                                                            Cog_States=Cog_States)
 
         #Update q_learning
         qlearning_objects[groupID].qlearn(group_data[groupID].action_logs[trial-1], 
@@ -379,6 +383,8 @@ def processRequest(groupID,
                                           C)
         qvalues = qlearning_objects[groupID].getQvalues()
         group_data[groupID].qvalues_log.append(qvalues.copy())
+        
+        print("Updated Qvalues is ", qvalues)
         
         #Update counts
         if LEARNING_MODE == 1:
@@ -417,7 +423,7 @@ def processRequest(groupID,
 
 ##Define a class to store group specific data and states, identified by group id
 class GroupData(object):
-    def __init__(self, groupID, policy_option):
+    def __init__(self, groupID, policy_option, observed_states, Cog_States=False):
 
         self.groupID = groupID
         self.policy_option = policy_option
@@ -466,7 +472,9 @@ class GroupData(object):
         self.indexes = np.zeros((N, C.shape[0]))
 
         # start state will be -1 set by params, so state_log[:, 0] will be an array of random states of length N
-        if start_state is not None:
+        if Cog_States:
+            self.state_log[:, 0] = observed_states
+        elif start_state is not None:
             self.state_log[:, 0] = start_state
         else:
             self.state_log[:, 0] = 1
@@ -495,6 +503,7 @@ class ExampleHandler (socketserver.StreamRequestHandler):
         global group_data
         global group_num
         global qlearning_objects
+        global N
 
         user_data = self.rfile.readline().decode("utf-8").strip()
         print(f"# received message '{user_data}'")
@@ -502,18 +511,23 @@ class ExampleHandler (socketserver.StreamRequestHandler):
         print(f"# decoded JSON {user_data}")
         groupID = user_data['GROUP-ID'] 
         user_list = list(user_data['OBS-STATES'].keys())
-        observed_states = list(user_data['OBS-STATES'].values()) 
-        trial = user_data['TRIAL'] 
+        observed_states = np.full(len(user_list), list(user_data['OBS-STATES'].values())) 
+        print("# observed states are", observed_states)
+        trial = user_data['TRIAL']
+        if user_data['COG-STATES'] == 1:
+            Cog_States = True
+        else:
+            Cog_States = False
         ## if GroupData object already created for group (i.e., this is not the first trial),
         ## then access GroupData object and process requeset for that group,
         ## else set up GroupData object (and rmab_ql object?)
         if groupID in group_data:
             ##Process request
             print(f"# Processing request for existing group: {groupID} trial: {trial}")
-            selected_users = processRequest(groupID,trial,observed_states)
+            selected_users = processRequest(groupID,trial,observed_states, Cog_States=Cog_States)
         else:
             ## set up group specific data object to save states
-            group_data[groupID] = GroupData(groupID, policies[0])
+            group_data[groupID] = GroupData(groupID, policies[0], observed_states, Cog_States=Cog_States)
             
             #print("# New group num is:", group_num)
             #print("# State log is", group_data[groupID].state_log)
@@ -528,7 +542,7 @@ class ExampleHandler (socketserver.StreamRequestHandler):
                                                         qinit=qinit, eqdist=eqdist, nknown=nknown)
             ##Process request
             print(f"# Processing request for new group: {groupID} trial: {trial}")
-            selected_users = processRequest(groupID,trial,observed_states)
+            selected_users = processRequest(groupID,trial,observed_states, Cog_States=Cog_States)
 
         #print("user list is", user_list)
         #print("selected users is", selected_users)
