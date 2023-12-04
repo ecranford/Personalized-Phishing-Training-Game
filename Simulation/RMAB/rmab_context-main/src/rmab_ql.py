@@ -47,27 +47,27 @@ def rmabql_qlearn_helper(actions, state_log, R, iteration, counts,
         Q[arm][state][a] += alpha * \
             (R[arm, state] + gamma*max(Q[arm][nextState][:]) - Q[arm][state][a])
 
-        if a > 0:
-            if ql_type == 0:
-                try:
-                    WhittleIndex[arm, state, a] = (
-                        Q[arm][state][a] - Q[arm][state][a-1])/(costs[arm][a] - costs[arm][a-1])
-                except:
-                    WhittleIndex[arm, state, a] = (
-                        Q[arm][state][a] - Q[arm][state][a-1])/(costs[a] - costs[a-1])
-            elif ql_type == 1:
+        #if a > 0:
+        if ql_type == 0:
+            try:
                 WhittleIndex[arm, state, a] = (
-                    Q[arm][state][a] - Q[arm][state][a-1])
-            elif ql_type == 2:
-                try:
-                    WhittleIndex[arm, state, a] = (
-                        Q[arm][state][a] - Q[arm][state][0])/(costs[arm][a] - costs[arm][0])
-                except:
-                    WhittleIndex[arm, state, a] = (
-                        Q[arm][state][a] - Q[arm][state][0])/(costs[a] - costs[0])
-            elif ql_type == 3:
+                    Q[arm][state][a] - Q[arm][state][a-1])/(costs[arm][a] - costs[arm][a-1])
+            except:
                 WhittleIndex[arm, state, a] = (
-                    Q[arm][state][a] - Q[arm][state][0])
+                    Q[arm][state][a] - Q[arm][state][a-1])/(costs[a] - costs[a-1])
+        elif ql_type == 1:
+            WhittleIndex[arm, state, a] = (
+                Q[arm][state][a] - Q[arm][state][a-1])
+        elif ql_type == 2:
+            try:
+                WhittleIndex[arm, state, a] = (
+                    Q[arm][state][a] - Q[arm][state][0])/(costs[arm][a] - costs[arm][0])
+            except:
+                WhittleIndex[arm, state, a] = (
+                    Q[arm][state][a] - Q[arm][state][0])/(costs[a] - costs[0])
+        elif ql_type == 3:
+            WhittleIndex[arm, state, a] = (
+                Q[arm][state][a] - Q[arm][state][0])
         # if a == 0:
         #   self.WhittleIndex[arm, state, a] = self.Q[arm][state][a]
 

@@ -251,7 +251,41 @@ def circulant_dynamics(N, b=0.2):
     C = np.array([0, 1])
 
     return T, R, C, F
+
+def rmab_cog_sim(N):
+
+    T1 = np.array(
+        [
+            [
+                [0.77961089, 0.22038911], # G state action 0
+                [0.844522145, 0.155477855]  # G state action 1
+            ],
+            [
+                [0.545747778, 0.454252222], # B state action 0
+                [0.689440994, 0.310559006]  # B state action 1
+            ],
+        ]
+    )
+
+    r = [1, 0]
     
+    T = []
+    R = []
+    F = []
+
+    for _ in range(N):
+        T.append(T1)
+        R.append(r)
+        F.append([1])
+        
+    T = np.array(T)
+    R = np.array(R)
+    C = np.array([0, 1])
+    F = np.array(F)
+    
+    return T, R, C, F
+
+
 def behavorial(N):
 
     T1 = np.array(

@@ -476,7 +476,7 @@ class RMABQL(object):
 
     def check_random(self, iteration, random_stream=None):
         # eps = 1
-        if self.eps_decay:
+        '''if self.eps_decay:
             # self.eps = 1/(1+(iteration/(self.n_arms+self.s)))
             # eps = max(self.eps/np.ceil(iteration/BORKAR_DIVISOR), 0)
             eps = self.epsilon(iteration)
@@ -487,7 +487,7 @@ class RMABQL(object):
         # if self.initial_exploration:
         #     if self.iterations < 100:
         #         self.eps = 0.9
-
+        
         p = None
         if random_stream is not None:
             p = random_stream.random()
@@ -495,6 +495,12 @@ class RMABQL(object):
             p = np.random.random()
 
         return p < eps
+        '''
+        
+        if(iteration < 10):
+            eps = 1
+        else:
+            eps = 0
 
     # need to return nxa array of indices
 

@@ -201,8 +201,8 @@ def takeAction(current_states, T, actions, observed_states, random_stream):
     # print(current_states)
     # print(T.shape)
     next_states = np.zeros(current_states.shape)
-    print("observed_states")
-    print(observed_states)
+    #print("observed_states")
+    #print(observed_states)
     for i in range(N):
 
         current_state = int(current_states[i])
@@ -218,8 +218,8 @@ def takeAction(current_states, T, actions, observed_states, random_stream):
         # if current_state != next_state:
         #     print(i, current_state, int(actions[i]), next_state, T[i, current_state, int(actions[i]), :])
 
-    print("next states are")
-    print(next_states)
+    #print("next states are")
+    #print(next_states)
 
     return next_states
 
@@ -366,14 +366,16 @@ def getActions(N, T_hat, R, C, B, k, features=None, seed=None, valid_action_comb
         if not payment <= B:
             raise ValueError("Over budget")
 
-        #print("the payment is")
-        #print(payment)
+        if(payment < B):
+            print("the payment is")
+            print(payment)
         #Shahin:adding random actions when the whittle index is zero
-        while(payment < B):
+        '''while(payment < B):
             index = np.random.randint(N)
             if(actions[index] == 0):
                 actions[index] = 1
                 payment += C[actions[index]]
+        '''
         return actions
 
     elif policy_option in [54]:
@@ -489,8 +491,8 @@ def getActions(N, T_hat, R, C, B, k, features=None, seed=None, valid_action_comb
                         chosen[i] = 1
                     #print("action for user i is", i, action)
         explore_indices = np.where(explore == 1)[0]
-        print("explore_length")
-        print(len(explore_indices))
+        #print("explore_length")
+        #print(len(explore_indices))
         selected_to_explore = random.sample(list(explore_indices), B_explore)
         #print(len(selected_to_explore))
         #print("actions before explore")
@@ -638,7 +640,7 @@ def thompson_sampling(N, T_shape, priors, counts, random_stream):
                 T_hat[i, j, k, 1] = 1 - T_hat[i, j, k, 0]
     return T_hat
 
-def simulateAdherence(N, L, T, R, C, B, k, previous_actions, previous_states, policy_option=44, optimal_policy=None, combined_state_dict=None,
+def simulateAdherence(N, L, T, R, C, B, k, previous_actions=None, previous_states=None, policy_option=44, optimal_policy=None, combined_state_dict=None,
                       action_logs={}, features=None, cumulative_state_log=None,
                       seedbase=None, savestring='trial', learning_mode=0,
                       world_random_seed=None, learning_random_seed=None, verbose=False,
@@ -846,8 +848,8 @@ def simulateAdherence(N, L, T, R, C, B, k, previous_actions, previous_states, po
             else:
                 #print("bottom")
                 actions = previous_actions[t-1]
-        print("selected actions are")
-        print(actions)
+        #print("selected actions are")
+        #print(actions)
         actions_record[:, t-1] = actions
 
         if action_logs is not None:
@@ -887,12 +889,12 @@ def simulateAdherence(N, L, T, R, C, B, k, previous_actions, previous_states, po
             qvalues_log.append(qvalues.copy())
             to_print=np.nonzero(actions)
             #print('selected players:')
-            file.write('t = ')
-            file.write(str(t))
-            file.write('\n')
+            #file.write('t = ')
+            #file.write(str(t))
+            #file.write('\n')
             counters_cluster = np.zeros(4)
-            for a in to_print:
-                file.write(str(a)+', ')
+            #for a in to_print:
+            #    file.write(str(a)+', ')
             #    print(a)
             #    print(' ')
             #print('\n')
@@ -906,10 +908,10 @@ def simulateAdherence(N, L, T, R, C, B, k, previous_actions, previous_states, po
                 elif(actions[a] == 1):
                     counters_cluster[3] = counters_cluster[3] + 1
 
-            for a in range(len(counters_cluster)):
-                file2.write(str(counters_cluster[a])+'\t')
-            file2.write('\n')
-            file.write('\n')
+            #for a in range(len(counters_cluster)):
+            #    file2.write(str(counters_cluster[a])+'\t')
+            #file2.write('\n')
+            #file.write('\n')
             
         if policy_option in [81, 82, 83, 84]:
             ql_object_context.qlearn(
@@ -1120,7 +1122,7 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--data', default='real', choices=['rmab_context_features_lipschitz', 'rmab_context_diffT', 'rmab_context_diffT_diffR',
                                                                 'rmab_context_features', 'full_random_online', 'arpita_sim1',
                                                                 'arpita_sim1_multiaction', 'rmab_context', 'arpita_circulant_dynamics',
-                                                                'arpita_healthcare_static', 'arpita_circulant_dynamics_prewards', 'simple_spam_ham', 'simple_spam_ham_2'],
+                                                                'arpita_healthcare_static', 'arpita_circulant_dynamics_prewards', 'simple_spam_ham', 'simple_spam_ham_2', 'rmab_cog_sim'],
                         type=str, help='Method for generating transition probabilities')
 
     parser.add_argument('-s', '--seed_base', type=int, help='Base for the random seed')
@@ -1287,25 +1289,31 @@ if __name__ == "__main__":
     qv = np.frompyfunc(list, 0, 1)(np.empty((L,100, args.num_states, args.num_actions, 3), dtype=object))
     dqv = np.frompyfunc(list, 0, 1)(np.empty((L,100, args.num_states, 3), dtype=object))
 
-    previous_states_list = args.previous_states
-    previous_states = []
-    for x in previous_states_list:
-     previous_states.append(eval(x))
-    previous_states = np.array(previous_states)
-    previous_states = previous_states[0]
-    #previous_states = previous_states.tolist()
-    #print(previous_states)
-    #print(previous_states.type)
-    previous_actions_list = args.previous_actions
-    #print("printing stuff here")
-    previous_actions = []
-    for x in previous_actions_list:
-     previous_actions.append(eval(x))
-    previous_actions = np.array(previous_actions)
-    previous_actions = previous_actions[0]
-    #print(previous_actions)
-    #print(previous_actions.shape)
-
+    if(args.previous_states is not None):
+        previous_states_list = args.previous_states
+        previous_states = []
+        for x in previous_states_list:
+         previous_states.append(eval(x))
+        previous_states = np.array(previous_states)
+        previous_states = previous_states[0]
+        #previous_states = previous_states.tolist()
+        #print(previous_states)
+        #print(previous_states.type)
+    else:
+        previous_states = None
+    if(args.previous_actions is not None):
+        previous_actions_list = args.previous_actions
+        #print("printing stuff here")
+        previous_actions = []
+        for x in previous_actions_list:
+         previous_actions.append(eval(x))
+        previous_actions = np.array(previous_actions)
+        previous_actions = previous_actions[0]
+        #print(previous_actions)
+        #print(previous_actions.shape)
+    else:
+        previous_actions = None
+    
 
     for i in range(N_TRIALS):
 
@@ -1338,6 +1346,14 @@ if __name__ == "__main__":
             LC = np.zeros((T.shape[1], T.shape[2]))
             num_types = 4
             type_dist = [int(0.21 * N), int(0.214*N), int(0.305*N), int(0.271*N)]
+            args.num_states = T.shape[1]
+
+        if args.data == 'rmab_cog_sim':
+            T, R, C, F = simulation_environments.rmab_cog_sim(N)
+            B = args.budget_frac * N
+            LC = np.zeros((T.shape[1], T.shape[2]))
+            num_types = 1
+            type_dist = [1,1,1,1]
             args.num_states = T.shape[1]
 
 
